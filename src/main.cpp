@@ -2,10 +2,11 @@
 
 using namespace std;
 int main(int argc, char* args[]) {
+	cout << "Starting\n";
 	Program p;
 	if (!p.initialize()) {
-		cout << "Failed to initialize.";
-		return 1;
+		cerr << "Failed to initialize.";
+		return 0;
 	}
 	p.loop();
 	p.close();

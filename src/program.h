@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include <stdio.h>
+#include <filesystem>
 using namespace std;
 
 // Screen dimension constants
@@ -32,6 +33,13 @@ struct Program {
             return 0;
         }
 
+        //Initialize PNG loading
+        int imgFlags = IMG_INIT_PNG;
+        if(!(IMG_Init(imgFlags) & imgFlags)){
+            printf( "SDL_image could not initialize! SDL_image Error: %s\n", IMG_GetError() );
+            return 0;
+        }
+
         renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED );
         if(renderer == NULL) {
             cout << "Renderer could not be created! SDL Error: " << SDL_GetError() << '\n';
@@ -39,13 +47,6 @@ struct Program {
         }
 
         SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
-
-        //Initialize PNG loading
-        int imgFlags = IMG_INIT_PNG;
-        if(!(IMG_Init(imgFlags) & imgFlags)){
-            cout << "SDL_image could not initialize! SDL_image Error: " << IMG_GetError() << '\n';
-            return 0;
-        }
 
         screenSurface = SDL_GetWindowSurface(window);
         game.initialize();
@@ -55,14 +56,14 @@ struct Program {
 	void loop() {
 		SDL_Event e; 
 		bool quit = false; 
+        
+        auto path = filesystem::current_path().string() + "\\1.jpg";
+        cout << path << '\n';
+        texture = IMG_LoadTexture(renderer, path.c_str());
 		while (!quit) { 
 			while (SDL_PollEvent(&e)) { 
 				if (e.type == SDL_QUIT) quit = true;
 				game.loop(e);
-
-                if (texture == NULL) {
-                    IMG_LoadTexture(renderer, "1.jpg");
-                }
 
                 SDL_RenderClear(renderer);
                 SDL_RenderCopy(renderer, texture, NULL, NULL);
@@ -76,6 +77,7 @@ struct Program {
 	void close() {
         SDL_DestroyTexture(texture);
         texture = NULL;
+        IMG_Quit();
  
         SDL_DestroyRenderer(renderer);
         renderer = NULL;
