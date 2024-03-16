@@ -7,8 +7,6 @@ int main(int argc, char* args[]) {
 		cout << "Failed to initialize.";
 		return 1;
 	}
-	cout << "HOW\n";
-
 	p.loop();
 	p.close();
 	return 0;
