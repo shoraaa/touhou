@@ -1,23 +1,129 @@
 #include <SDL.h>
 #include <SDL_image.h>
-#include "game.h"
 
 #include <iostream>
 #include <stdio.h>
 #include <filesystem>
+
 using namespace std;
 
 // Screen dimension constants
 const int SCREEN_WIDTH = 640;
 const int SCREEN_HEIGHT = 480;
 
-struct Program {
-	SDL_Window* window = NULL;
-	SDL_Surface* screenSurface = NULL;
-    SDL_Renderer* renderer = NULL;
+// global variables
+SDL_Window* window = NULL;
+SDL_Renderer* renderer = NULL;
+
+struct Button {
+
+};
+
+struct Player {
     SDL_Texture* texture = NULL;
 
-	Game game;
+	const int DELTA_X = 8;
+	const int DELTA_Y = 8;
+	int x = 0, y = 0;
+    int pressed[8] = { 0 };
+    #define KEY_UP 0
+    #define KEY_DOWN 1
+    #define KEY_RIGHT 2
+    #define KEY_LEFT 3
+    #define KEY_SHOOT 4
+    #define KEY_BOMB 5
+
+    void initialize() {
+        auto path = filesystem::current_path().string() + "\\assets\\player.png";
+        texture = IMG_LoadTexture(renderer, path.c_str());
+    }
+
+    void destroy() {
+        SDL_DestroyTexture(texture);
+        texture = NULL;
+    }
+
+    void render() {
+        
+        SDL_Rect srcrect;
+        srcrect.x = 3;
+        srcrect.y = 2;
+        srcrect.w = 28;
+        srcrect.h = 43;
+
+        SDL_Rect dstrect;
+        dstrect.x = this->x;
+        dstrect.y = this->y;
+        dstrect.w = 28;
+        dstrect.h = 43;
+
+        SDL_RenderCopy(renderer, texture, &srcrect, &dstrect);
+    }
+
+    void handle_input(SDL_Keycode key, bool is_down) {
+
+        int button = -1;
+        switch (key) {
+            case SDLK_UP: button = KEY_UP; break;
+            case SDLK_DOWN: button = KEY_DOWN; break;
+            case SDLK_RIGHT: button = KEY_RIGHT; break;
+            case SDLK_LEFT: button = KEY_LEFT; break;
+            case SDLK_x: button = KEY_SHOOT; break;
+            case SDLK_z: button = KEY_BOMB; break;
+            case SDLK_q: { printf("Quit\n"); exit(0); }
+            default: break;
+        }
+
+        if (button == -1) return;
+        pressed[button] = is_down;
+
+
+    }
+
+	void update(const SDL_Event& e) {
+
+        const auto key = e.key.keysym.sym;        
+        switch (e.type) {
+            case SDL_KEYDOWN: handle_input(key, true); break;
+            case SDL_KEYUP: handle_input(key, false); break;
+            default: break;
+        }
+
+
+
+        if (pressed[KEY_UP]) moveUp();
+        else if (pressed[KEY_DOWN]) moveDown();
+
+        if (pressed[KEY_LEFT]) moveLeft();
+        else if (pressed[KEY_RIGHT]) moveRight();
+
+        // shoot
+	}
+
+	void moveUp() {
+		y -= DELTA_Y;
+	}
+
+	void moveDown() {
+		y += DELTA_Y;
+	}
+
+	void moveRight() {
+		x += DELTA_X;
+	}
+
+	void moveLeft() {
+		x -= DELTA_X;
+	}
+	
+};
+
+struct Program {
+    SDL_Texture* backgound = NULL;
+
+    SDL_Surface* screenSurface = NULL;
+
+    Player player;
 
 	Program() = default;
 	bool initialize() {
@@ -49,25 +155,45 @@ struct Program {
         SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
 
         screenSurface = SDL_GetWindowSurface(window);
-        game.initialize();
+        
+        // game init
+        auto backgoundPath = filesystem::current_path().string() + "\\assets\\background.jpg";
+        backgound = IMG_LoadTexture(renderer, backgoundPath.c_str());
+        player.initialize();
+
+
 		return 1;
 	}
+
+    void update(const SDL_Event& e) {
+        player.update(e);
+
+        // TODO: update scrolling effect on bg
+    }
+
+    void render() {
+        SDL_RenderClear(renderer);
+
+        // render bg
+        SDL_RenderCopy(renderer, backgound, NULL, NULL);
+
+        // render player
+        player.render();
+
+        // render opp
+        SDL_RenderPresent(renderer);
+    }
 
 	void loop() {
 		SDL_Event e; 
 		bool quit = false; 
         
-        auto path = filesystem::current_path().string() + "\\1.jpg";
-        cout << path << '\n';
-        texture = IMG_LoadTexture(renderer, path.c_str());
 		while (!quit) { 
 			while (SDL_PollEvent(&e)) { 
 				if (e.type == SDL_QUIT) quit = true;
-				game.loop(e);
-
-                SDL_RenderClear(renderer);
-                SDL_RenderCopy(renderer, texture, NULL, NULL);
-                SDL_RenderPresent(renderer);
+				
+                update(e);
+                render();
 			}	
 		}
 
@@ -75,8 +201,10 @@ struct Program {
 
 
 	void close() {
-        SDL_DestroyTexture(texture);
-        texture = NULL;
+        player.destroy();
+
+        SDL_DestroyTexture(backgound);
+        backgound = NULL;
         IMG_Quit();
  
         SDL_DestroyRenderer(renderer);
