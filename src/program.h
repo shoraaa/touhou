@@ -22,9 +22,9 @@ struct Button {
 struct Player {
     SDL_Texture* texture = NULL;
 
-	const int DELTA_X = 8;
-	const int DELTA_Y = 8;
-	int x = 0, y = 0;
+	const float DELTA_X = 0.2;
+	const float DELTA_Y = 0.2;
+	float x = 0, y = 0;
     int pressed[8] = { 0 };
     #define KEY_UP 0
     #define KEY_DOWN 1
@@ -60,7 +60,16 @@ struct Player {
         SDL_RenderCopy(renderer, texture, &srcrect, &dstrect);
     }
 
-    void handle_input(SDL_Keycode key, bool is_down) {
+    void handle_input(const SDL_Event& e) {
+
+        const auto key = e.key.keysym.sym; 
+        int is_down = -1;  
+        switch (e.type) {
+            case SDL_KEYDOWN: is_down = 1; break;
+            case SDL_KEYUP: is_down = 0; break;
+            default: break;
+        }
+        if (is_down == -1) return;
 
         int button = -1;
         switch (key) {
@@ -77,19 +86,9 @@ struct Player {
         if (button == -1) return;
         pressed[button] = is_down;
 
-
     }
 
-	void update(const SDL_Event& e) {
-
-        const auto key = e.key.keysym.sym;        
-        switch (e.type) {
-            case SDL_KEYDOWN: handle_input(key, true); break;
-            case SDL_KEYUP: handle_input(key, false); break;
-            default: break;
-        }
-
-
+	void update() {
 
         if (pressed[KEY_UP]) moveUp();
         else if (pressed[KEY_DOWN]) moveDown();
@@ -165,8 +164,8 @@ struct Program {
 		return 1;
 	}
 
-    void update(const SDL_Event& e) {
-        player.update(e);
+    void update() {
+        player.update();
 
         // TODO: update scrolling effect on bg
     }
@@ -192,9 +191,12 @@ struct Program {
 			while (SDL_PollEvent(&e)) { 
 				if (e.type == SDL_QUIT) quit = true;
 				
-                update(e);
-                render();
+                player.handle_input(e);
+                
 			}	
+
+            update();
+            render();
 		}
 
 	}
