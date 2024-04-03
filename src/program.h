@@ -169,7 +169,7 @@ struct ParticleManager {
     void initialize() {
         texture.load("particle");
 
-        srcRect = { 322, 57, 16, 16};
+        srcRect.x = 322, srcRect.y = 57, srcRect.w = srcRect.h = 16;
     }
 
     void update() {
@@ -184,7 +184,7 @@ struct ParticleManager {
 
         delta--;
         if (delta == 0) {
-            delta = 60;
+            delta = 20;
             unique_ptr<LinearParticle> particle = make_unique<LinearParticle>(
                 Vec2d(random(FIELD_X, FIELD_X + FIELD_WIDTH - 1), FIELD_Y), Vec2d(0, 1), 8);
             particles.emplace_back(move(particle));
@@ -455,6 +455,7 @@ struct Scene_Gameplay {
 
         bgm.load("th06_02");
         player.initialize();
+        particleManager.initialize();
     }
 
     void start() {
