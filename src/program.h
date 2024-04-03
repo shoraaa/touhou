@@ -13,6 +13,12 @@ using namespace std;
 const int WINDOW_WIDTH = 640;
 const int WINDOW_HEIGHT = 480;
 
+// Play Field dimentsion
+const int FIELD_X = 32;
+const int FIELD_Y = 16;
+const int FIELD_WIDTH = 480;
+const int FIELD_HEIGHT = WINDOW_HEIGHT - 16 * 2;
+
 // global variables
 SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
@@ -29,7 +35,7 @@ class Texture {
 
 		bool load(string name) {
             free();
-            const string path = filesystem::current_path().string() + "\\assets\\" + name + ".png";
+            const string path = filesystem::current_path().string() + "\\assets\\picture\\" + name + ".png";
             texture = IMG_LoadTexture(renderer, path.c_str());
             return texture != NULL;
         }
@@ -66,7 +72,7 @@ public:
         music = NULL;
     }
     void load(string name) {
-        string path = filesystem::current_path().string() + "\\assets\\bgm\\" + name + ".wav";
+        string path = filesystem::current_path().string() + "\\assets\\audio\\bgm\\" + name + ".wav";
         music = Mix_LoadMUS(path.c_str());
         if (music == NULL) {
             printf("Failed to load scratch sound effect! SDL_mixer Error: %s\n", Mix_GetError());
@@ -90,7 +96,7 @@ public:
         se = NULL;
     }
     void load(string name) {
-        string path = filesystem::current_path().string() + "\\assets\\se\\" + name + ".wav";
+        string path = filesystem::current_path().string() + "\\assets\\audio\\se\\" + name + ".wav";
         se = Mix_LoadWAV(path.c_str());
         if (se == NULL) {
             printf("Failed to load scratch sound effect! SDL_mixer Error: %s\n", Mix_GetError());
@@ -114,6 +120,10 @@ struct Vec2d {
     }
 };
 
+bool inPlayField(const Vec2d& position) {
+    return position.x >= FIELD_X && position.x < FIELD_WIDTH && position.y >= FIELD_Y && position.y < FIELD_HEIGHT;
+}
+
 class Particle {
     public:
     Vec2d initialPosition, position;
@@ -123,8 +133,7 @@ class Particle {
     Particle(Vec2d pos): initialPosition(pos), position(pos) {}
 
     bool inBound() {
-        // TODO: more complex as it need to compare each particle type source rect
-        return position.x >= 0 && position.x < WINDOW_WIDTH && position.y >= 0 && position.y < WINDOW_HEIGHT;
+        return inPlayField(position);
     }
     
     virtual void update() {}
@@ -191,7 +200,7 @@ struct Player {
 
 	const double DELTA_X = 5;
 	const double DELTA_Y = 5;
-	double x = 0, y = 0;
+	Vec2d position, velocity;
 
     int pressed[8] = { 0 };
     #define KEY_UP 0
@@ -209,6 +218,8 @@ struct Player {
 
     void initialize() {
         spriteTexture.load("marisa");
+        position = Vec2d(FIELD_X + FIELD_WIDTH / 2, FIELD_HEIGHT - 32);
+        velocity = Vec2d(5, 5);
 
         // source rectangle
         for (int i = 0, y = 25; i < 2; ++i) {
@@ -230,7 +241,7 @@ struct Player {
     }
 
     void render() {
-        spriteTexture.render(this->x - SPRITE_WIDTH / 2, dstRect.y = this->y - SPRITE_HEIGHT / 2, 
+        spriteTexture.render(position.x - SPRITE_WIDTH / 2, dstRect.y = position.y - SPRITE_HEIGHT / 2, 
                             &srcRect[!idle][sprite_col], 0.0, NULL, movingRight ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
 
         for (auto& particle : bullets) {
@@ -287,11 +298,13 @@ struct Player {
 	}
 
 	void moveUp() {
-		y -= DELTA_Y;
+		position.y -= velocity.y;
+        if (!inPlayField(position)) position.y += velocity.y;
 	}
 
 	void moveDown() {
-		y += DELTA_Y;
+		position.y += velocity.y;
+        if (!inPlayField(position)) position.y -= velocity.y;
 	}
 
 	void moveRight() {
@@ -303,7 +316,21 @@ struct Player {
             movingLeft = 0;
             movingRight = 1;
         }
-		x += DELTA_X;
+		position.x += velocity.x;
+        if (!inPlayField(position)) position.x -= velocity.x;
+	}
+
+	void moveLeft() {
+        if (!movingLeft) {
+            sprite_row = 1;
+            sprite_col = 0;
+            sprite_delta = DELTA_DELAY;
+            idle = 0;
+            movingLeft = 1;
+            movingRight = 0;
+        }
+		position.x -= velocity.x;
+        if (!inPlayField(position)) position.x += velocity.x;
 	}
 
     void startIdle() {
@@ -315,22 +342,10 @@ struct Player {
         movingRight = 0;
     }
 
-	void moveLeft() {
-        if (!movingLeft) {
-            sprite_row = 1;
-            sprite_col = 0;
-            sprite_delta = DELTA_DELAY;
-            idle = 0;
-            movingLeft = 1;
-            movingRight = 0;
-        }
-		x -= DELTA_X;
-	}
-
     void shoot() {
         switch (currentPowerLv) {
             case 1: 
-                unique_ptr<LinearParticle> bullet = make_unique<LinearParticle>(Vec2d(x, y), Vec2d(0, -1), 8);
+                unique_ptr<LinearParticle> bullet = make_unique<LinearParticle>(position, Vec2d(0, -1), 8);
                 bullets.emplace_back(move(bullet));
                 break;
                 
@@ -375,13 +390,14 @@ struct Scene_MainMenu {
         background.load("title");
         bgm.load("th06_01");
 
-        // bgm.play();
+        bgm.play();
     }
 
     void handleInput(const SDL_Event& e) {
         const auto key = e.key.keysym.sym; 
         if (key == SDLK_RETURN) {
             gameStarted = 1;
+            bgm.stop();
             cout << "Game Start!\n";
         }
     }
@@ -398,6 +414,7 @@ struct Scene_MainMenu {
 struct Scene_Gameplay {
 
     Texture background;
+    BGM bgm;
 
     Player player;
     double scrollingOffset = 0;
@@ -405,7 +422,12 @@ struct Scene_Gameplay {
     void initialize() {
         // game init
         background.load("background");
+        bgm.load("th06_03");
         player.initialize();
+    }
+
+    void start() {
+        bgm.play();
     }
 
     void handleInput(const SDL_Event& e) {
@@ -497,6 +519,7 @@ struct Program {
         }
         if (menu.gameStarted) {
             currentScene = 1;
+            game.start();
         }
     }
 
