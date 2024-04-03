@@ -20,6 +20,8 @@ const int FIELD_Y = 16;
 const int FIELD_WIDTH = 400;
 const int FIELD_HEIGHT = WINDOW_HEIGHT - 16 * 2;
 
+int PLAYER_LOST = 0;
+
 // global variables
 SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
@@ -122,8 +124,15 @@ struct Vec2d {
         return x >= FIELD_X && x < FIELD_WIDTH && y >= FIELD_Y && y < FIELD_HEIGHT;
     }
 
+    double distance(const Vec2d& other) {
+        return sqrt((x - other.x) * (x - other.x) + (y - other.y) * (y - other.y));
+    }
+
     Vec2d operator+ (const Vec2d& a) const {
         return Vec2d(x + a.x, y + a.y);
+    }
+     Vec2d operator- (const Vec2d& a) const {
+        return Vec2d(x - a.x, y - a.y);
     }
     Vec2d operator* (double k) const {
         return Vec2d(x * k, y * k);
@@ -156,49 +165,6 @@ class LinearParticle : public Particle {
         elapsedTime++;
     }
 };
-
-struct ParticleManager {
-    string texturePath;
-    Texture texture;
-    int delta = 60;
-
-    SDL_Rect srcRect;
-
-    vector<unique_ptr<Particle>> particles;
-
-    void initialize() {
-        texture.load("particle");
-
-        srcRect.x = 322, srcRect.y = 57, srcRect.w = srcRect.h = 16;
-    }
-
-    void update() {
-        vector<unique_ptr<Particle>> newParticles;
-        for (auto& particle : particles) {
-            particle->update();
-            if (particle->inBound()) {
-                newParticles.emplace_back(move(particle));
-            }
-        }
-        particles = move(newParticles);
-
-        delta--;
-        if (delta == 0) {
-            delta = 20;
-            unique_ptr<LinearParticle> particle = make_unique<LinearParticle>(
-                Vec2d(random(FIELD_X, FIELD_X + FIELD_WIDTH - 1), FIELD_Y), Vec2d(0, 1), 8);
-            particles.emplace_back(move(particle));
-        }
-
-    }
-
-    void render() {
-        for (auto& particle : particles) {
-            texture.render(particle->position.x, particle->position.y, &srcRect);
-        }
-    }
-
-} particleManager;
 
 struct Player {
     Texture spriteTexture;
@@ -406,7 +372,57 @@ struct Player {
         bullets = move(newBullets);
     }
 	
-};
+} player;
+
+struct ParticleManager {
+    string texturePath;
+    Texture texture;
+    int delta = 30;
+
+    SDL_Rect srcRect;
+
+    vector<unique_ptr<Particle>> particles;
+
+    void initialize() {
+        texture.load("particle");
+
+        srcRect.x = 322, srcRect.y = 57, srcRect.w = srcRect.h = 16;
+    }
+
+    void update() {
+        vector<unique_ptr<Particle>> newParticles;
+        for (auto& particle : particles) {
+            particle->update();
+            if (particle->inBound()) {
+                newParticles.emplace_back(move(particle));
+
+                if (player.position.distance(particle->position) < 5) {
+                    PLAYER_LOST = 1;
+                }
+            }
+        }
+        particles = move(newParticles);
+
+        delta--;
+        if (delta == 0) {
+            delta = 10;
+            Vec2d position = Vec2d(random(FIELD_X, FIELD_X + FIELD_WIDTH - 1), FIELD_Y);
+            Vec2d direction = player.position - position;
+            direction.x /= direction.y; direction.y = 1;    
+            unique_ptr<LinearParticle> particle = make_unique<LinearParticle>(position, direction, 2.5);
+            particles.emplace_back(move(particle));
+        }
+
+    }
+
+    void render() {
+        for (auto& particle : particles) {
+            texture.render(particle->position.x, particle->position.y, &srcRect);
+        }
+    }
+
+} particleManager;
+
 
 struct Scene_MainMenu {
     BGM bgm;
@@ -446,7 +462,6 @@ struct Scene_Gameplay {
     Texture background, foreground;
     BGM bgm;
 
-    Player player;
     double scrollingOffset = 0;
 
     void initialize() {
@@ -612,6 +627,8 @@ struct Program {
 		bool quit = false; 
         
 		while (!quit) { 
+            if (PLAYER_LOST) continue;
+            
             while (SDL_PollEvent(&e)) { 
                 if (e.type == SDL_QUIT) quit = true;
                 
