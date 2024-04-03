@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <filesystem>
 #include <vector>
+#include <random>
 
 using namespace std;
 
@@ -108,6 +109,10 @@ public:
     }
 };
 
+mt19937 rng(chrono::steady_clock::now().time_since_epoch().count());
+int random(int l, int r) {
+    return rng() % (r - l + 1) + l;
+}
 
 struct Vec2d {
     double x, y;
@@ -155,31 +160,42 @@ class LinearParticle : public Particle {
 struct ParticleManager {
     string texturePath;
     Texture texture;
+    int delta = 60;
 
-    vector<Particle> particles;
+    SDL_Rect srcRect;
+
+    vector<unique_ptr<Particle>> particles;
 
     void initialize() {
         texture.load("particle");
-    }
 
-    void push(Particle& p) {
-        particles.push_back(p);
+        srcRect = { 322, 57, 16, 16};
     }
 
     void update() {
-        vector<Particle> newParticles;
+        vector<unique_ptr<Particle>> newParticles;
         for (auto& particle : particles) {
-            particle.update();
-            if (particle.inBound()) {
-                newParticles.push_back(particle);
+            particle->update();
+            if (particle->inBound()) {
+                newParticles.emplace_back(move(particle));
             }
         }
-        particles = newParticles;
+        particles = move(newParticles);
+
+        delta--;
+        if (delta == 0) {
+            delta = 60;
+            unique_ptr<LinearParticle> particle = make_unique<LinearParticle>(
+                Vec2d(random(FIELD_X, FIELD_X + FIELD_WIDTH - 1), FIELD_Y), Vec2d(0, 1), 8);
+            particles.emplace_back(move(particle));
+        }
 
     }
 
     void render() {
-
+        for (auto& particle : particles) {
+            texture.render(particle->position.x, particle->position.y, &srcRect);
+        }
     }
 
 } particleManager;
@@ -203,6 +219,7 @@ struct Player {
 	const double DELTA_X = 5;
 	const double DELTA_Y = 5;
 	Vec2d position, velocity;
+    Vec2d normalVelocity, slowVelocity;
 
     int pressed[8] = { 0 };
     #define KEY_UP 0
@@ -211,6 +228,7 @@ struct Player {
     #define KEY_LEFT 3
     #define KEY_SHOOT 4
     #define KEY_BOMB 5
+    #define KEY_SHIFT 6
 
     #define SPRITE_WIDTH 32
     #define SPRITE_HEIGHT 48
@@ -222,6 +240,9 @@ struct Player {
         spriteTexture.load("marisa");
         position = Vec2d(FIELD_X + FIELD_WIDTH / 2, FIELD_HEIGHT - 32);
         velocity = Vec2d(5, 5);
+
+        normalVelocity = Vec2d(5, 5);
+        slowVelocity = Vec2d(2.5, 2.5);
 
         shootSE.load("plst00");
 
@@ -272,6 +293,7 @@ struct Player {
             case SDLK_LEFT: button = KEY_LEFT; break;
             case SDLK_z: button = KEY_SHOOT; break;
             case SDLK_x: button = KEY_BOMB; break;
+            case SDLK_LSHIFT: button = KEY_SHIFT; break;
             case SDLK_q: { printf("Quit\n"); exit(0); }
             default: break;
         }
@@ -290,9 +312,12 @@ struct Player {
         else if (pressed[KEY_RIGHT]) moveRight();
         else if (!idle) startIdle();
 
+        if (pressed[KEY_SHIFT]) velocity = slowVelocity;
+        else velocity = normalVelocity; 
+
         // shoot
         int currentTick = SDL_GetTicks();
-        if (pressed[KEY_SHOOT] && currentTick - lastBullet > 80) {
+        if (pressed[KEY_SHOOT] && currentTick - lastBullet > 60) {
             shoot();
             lastBullet = currentTick;
         }
@@ -350,7 +375,7 @@ struct Player {
         shootSE.play();
         switch (currentPowerLv) {
             case 1: 
-                unique_ptr<LinearParticle> bullet = make_unique<LinearParticle>(position, Vec2d(0, -1), 8);
+                unique_ptr<LinearParticle> bullet = make_unique<LinearParticle>(position, Vec2d(0, -1), 16);
                 bullets.emplace_back(move(bullet));
                 break;
                 
@@ -499,6 +524,7 @@ struct Scene_Gameplay {
         renderBG();
 
         player.render();
+        particleManager.render();
 
         renderFG();
     }
