@@ -125,7 +125,7 @@ struct Vec2d {
     }
 
     double distance(const Vec2d& other) {
-        return sqrt((x - other.x) * (x - other.x) + (y - other.y) * (y - other.y));
+        return (x - other.x) * (x - other.x) + (y - other.y) * (y - other.y);
     }
 
     Vec2d operator+ (const Vec2d& a) const {
@@ -143,7 +143,7 @@ class Particle {
     public:
     Vec2d initialPosition, position;
     int elapsedTime = 0;
-    int type;
+    int type, hit = 0;
     Particle() = default;
     Particle(Vec2d pos): initialPosition(pos), position(pos) {}
 
@@ -389,28 +389,43 @@ struct ParticleManager {
         srcRect.x = 322, srcRect.y = 57, srcRect.w = srcRect.h = 16;
     }
 
+    void push(Vec2d pos) {
+        Vec2d position = pos;
+        Vec2d direction = player.position - position;
+        // int g = gcd(int(position.x), int(position.y));
+        // position.x /= g, position.y /= g;
+        direction.x /= direction.y; direction.y = 1;    
+        unique_ptr<LinearParticle> particle = make_unique<LinearParticle>(position, direction, 3);
+        particles.emplace_back(move(particle));
+    }
+
     void update() {
         vector<unique_ptr<Particle>> newParticles;
         for (auto& particle : particles) {
             particle->update();
-            if (particle->inBound()) {
+            if (particle->inBound() && !particle->hit) {
                 newParticles.emplace_back(move(particle));
 
-                if (player.position.distance(particle->position) < 5) {
-                    PLAYER_LOST = 1;
-                }
             }
         }
         particles = move(newParticles);
 
-        delta--;
-        if (delta == 0) {
-            delta = 10;
-            Vec2d position = Vec2d(random(FIELD_X, FIELD_X + FIELD_WIDTH - 1), FIELD_Y);
-            Vec2d direction = player.position - position;
-            direction.x /= direction.y; direction.y = 1;    
-            unique_ptr<LinearParticle> particle = make_unique<LinearParticle>(position, direction, 2.5);
-            particles.emplace_back(move(particle));
+        // delta--;
+        // if (delta == 0) {
+        //     delta = 4;
+        //     Vec2d position = Vec2d(random(FIELD_X, FIELD_X + FIELD_WIDTH - 1), FIELD_Y);
+        //     Vec2d direction = player.position - position;
+        //     direction.x /= direction.y; direction.y = 1;    
+        //     unique_ptr<LinearParticle> particle = make_unique<LinearParticle>(position, direction, 4);
+        //     particles.emplace_back(move(particle));
+        // }
+
+        for (auto& particle : particles) {
+            auto x = particle->position.x, y = particle->position.y;
+            auto px = player.position.x, py = player.position.y;
+            if ((x - px) * (x - px) + (y - py) * (y - py) <= 64) {
+                PLAYER_LOST = 1;
+            }
         }
 
     }
@@ -423,6 +438,92 @@ struct ParticleManager {
 
 } particleManager;
 
+struct Enemy {
+    Vec2d position, direction;
+    int elapsedTime = 0;
+    int type, dead = 0, delay = 60;
+    int hp = 5;
+    double velocity = 1.0;
+    Enemy(Vec2d pos, Vec2d dir, double vel): position(pos), direction(dir), velocity(vel) {}
+    void update() {
+        if (dead) return;
+
+        position = position + direction * velocity;
+        elapsedTime++;
+
+        for (auto& bullet : player.bullets) {
+            if (bullet->position.distance(position) <= 64) {
+                bullet->position.x = 0;
+                hp--;
+                if (hp == 0) {
+                    dead = 1;
+                    return;
+                }
+            }
+        }
+
+        delay--;
+        if (delay == 0) {
+            delay = 30;
+            particleManager.push(position);
+        }
+    }
+};
+
+struct EnemyManager {
+    string texturePath;
+    Texture texture;
+    int delta = 30;
+
+    SDL_Rect srcRect;
+
+    vector<Enemy> enemies;
+
+    void initialize() {
+        texture.load("enemy");
+
+        srcRect.x = 306, srcRect.y = 306, srcRect.w = srcRect.h = 32;
+    }
+
+    void update() {
+        vector<Enemy> newEnemies;
+        for (auto& enemy : enemies) {
+            enemy.update();
+            if (!enemy.dead) {
+                newEnemies.emplace_back(enemy);
+            }
+        }
+        enemies = newEnemies;
+
+        delta--;
+        if (delta == 0) {
+            delta = 32;
+            Vec2d position = Vec2d(random(FIELD_X, FIELD_X + FIELD_WIDTH - 1), FIELD_Y);
+            Vec2d direction = Vec2d(0, 1);
+            // int g = gcd(position.x, position.y);
+            // position.x /= g, position.y /= g;
+            direction.x /= direction.y; direction.y = 1;    
+            Enemy enemy = Enemy(position, direction, 1);
+            enemies.emplace_back(enemy);
+        }
+
+        for (auto& enemy : enemies) {
+            auto x = enemy.position.x, y = enemy.position.y;
+            auto px = player.position.x, py = player.position.y;
+            if ((x - px) * (x - px) + (y - py) * (y - py) <= 64) {
+                PLAYER_LOST = 1;
+            }
+            
+        }
+
+    }
+
+    void render() {
+        for (auto& enemy : enemies) {
+            texture.render(enemy.position.x, enemy.position.y, &srcRect);
+        }
+    }
+} enemyManager;
 
 struct Scene_MainMenu {
     BGM bgm;
@@ -470,6 +571,7 @@ struct Scene_Gameplay {
 
         bgm.load("th06_02");
         player.initialize();
+        enemyManager.initialize();
         particleManager.initialize();
     }
 
@@ -489,6 +591,7 @@ struct Scene_Gameplay {
         }
 
         player.update();
+        enemyManager.update();
 
         particleManager.update();
     }
@@ -540,6 +643,7 @@ struct Scene_Gameplay {
         renderBG();
 
         player.render();
+        enemyManager.render();
         particleManager.render();
 
         renderFG();
@@ -627,7 +731,6 @@ struct Program {
 		bool quit = false; 
         
 		while (!quit) { 
-            if (PLAYER_LOST) continue;
             
             while (SDL_PollEvent(&e)) { 
                 if (e.type == SDL_QUIT) quit = true;
@@ -636,7 +739,10 @@ struct Program {
                 
             }	
 
+            if (PLAYER_LOST) continue;
+
             update();
+            
             render();
 		}
 
