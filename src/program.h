@@ -16,7 +16,7 @@ const int WINDOW_HEIGHT = 480;
 // Play Field dimentsion
 const int FIELD_X = 32;
 const int FIELD_Y = 16;
-const int FIELD_WIDTH = 480;
+const int FIELD_WIDTH = 400;
 const int FIELD_HEIGHT = WINDOW_HEIGHT - 16 * 2;
 
 // global variables
@@ -112,6 +112,11 @@ public:
 struct Vec2d {
     double x, y;
     Vec2d(double x = 0, double y = 0): x(x), y(y) {}
+
+    bool inPlayField() {
+        return x >= FIELD_X && x < FIELD_WIDTH && y >= FIELD_Y && y < FIELD_HEIGHT;
+    }
+
     Vec2d operator+ (const Vec2d& a) const {
         return Vec2d(x + a.x, y + a.y);
     }
@@ -119,10 +124,6 @@ struct Vec2d {
         return Vec2d(x * k, y * k);
     }
 };
-
-bool inPlayField(const Vec2d& position) {
-    return position.x >= FIELD_X && position.x < FIELD_WIDTH && position.y >= FIELD_Y && position.y < FIELD_HEIGHT;
-}
 
 class Particle {
     public:
@@ -133,7 +134,7 @@ class Particle {
     Particle(Vec2d pos): initialPosition(pos), position(pos) {}
 
     bool inBound() {
-        return inPlayField(position);
+        return position.inPlayField();
     }
     
     virtual void update() {}
@@ -185,6 +186,7 @@ struct ParticleManager {
 
 struct Player {
     Texture spriteTexture;
+    SE shootSE;
 
     SDL_Rect srcRect[2][8], bulletSrcRect;
     SDL_Rect dstRect;
@@ -221,6 +223,8 @@ struct Player {
         position = Vec2d(FIELD_X + FIELD_WIDTH / 2, FIELD_HEIGHT - 32);
         velocity = Vec2d(5, 5);
 
+        shootSE.load("plst00");
+
         // source rectangle
         for (int i = 0, y = 25; i < 2; ++i) {
             int x = 868;
@@ -241,11 +245,11 @@ struct Player {
     }
 
     void render() {
-        spriteTexture.render(position.x - SPRITE_WIDTH / 2, dstRect.y = position.y - SPRITE_HEIGHT / 2, 
+        spriteTexture.render(position.x - 8, dstRect.y = position.y - 16, 
                             &srcRect[!idle][sprite_col], 0.0, NULL, movingRight ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
 
         for (auto& particle : bullets) {
-            spriteTexture.render(particle->position.x - BULLET_WIDTH / 2, particle->position.y - BULLET_HEIGHT / 2, &bulletSrcRect);
+            spriteTexture.render(particle->position.x, particle->position.y - BULLET_HEIGHT, &bulletSrcRect);
         }
     }
 
@@ -299,12 +303,12 @@ struct Player {
 
 	void moveUp() {
 		position.y -= velocity.y;
-        if (!inPlayField(position)) position.y += velocity.y;
+        if (!position.inPlayField()) position.y += velocity.y;
 	}
 
 	void moveDown() {
 		position.y += velocity.y;
-        if (!inPlayField(position)) position.y -= velocity.y;
+        if (!position.inPlayField()) position.y -= velocity.y;
 	}
 
 	void moveRight() {
@@ -317,7 +321,7 @@ struct Player {
             movingRight = 1;
         }
 		position.x += velocity.x;
-        if (!inPlayField(position)) position.x -= velocity.x;
+        if (!position.inPlayField()) position.x -= velocity.x;
 	}
 
 	void moveLeft() {
@@ -330,7 +334,7 @@ struct Player {
             movingRight = 0;
         }
 		position.x -= velocity.x;
-        if (!inPlayField(position)) position.x += velocity.x;
+        if (!position.inPlayField()) position.x += velocity.x;
 	}
 
     void startIdle() {
@@ -343,6 +347,7 @@ struct Player {
     }
 
     void shoot() {
+        shootSE.play();
         switch (currentPowerLv) {
             case 1: 
                 unique_ptr<LinearParticle> bullet = make_unique<LinearParticle>(position, Vec2d(0, -1), 8);
@@ -413,20 +418,22 @@ struct Scene_MainMenu {
 
 struct Scene_Gameplay {
 
-    Texture background;
+    Texture background, foreground;
     BGM bgm;
 
     Player player;
     double scrollingOffset = 0;
 
     void initialize() {
-        // game init
         background.load("background");
-        bgm.load("th06_03");
+        foreground.load("foreground");
+
+        bgm.load("th06_02");
         player.initialize();
     }
 
     void start() {
+        cout << "Playing BGM\n";
         bgm.play();
     }
 
@@ -445,17 +452,55 @@ struct Scene_Gameplay {
         particleManager.update();
     }
 
-    void render() {
-        // render bg
+    void renderBG() {
         SDL_Rect srcRect, dstRect; 
         srcRect.x = 306, srcRect.y = 25, srcRect.w = srcRect.h = 256;
         dstRect.x=0, dstRect.y=scrollingOffset, dstRect.w=WINDOW_WIDTH, dstRect.h=WINDOW_HEIGHT;
         background.render(&srcRect, &dstRect);
         dstRect.x=0, dstRect.y=-WINDOW_HEIGHT + scrollingOffset, dstRect.w=WINDOW_WIDTH, dstRect.h=WINDOW_HEIGHT;
         background.render(&srcRect, &dstRect);
+    }
+    
+    void renderFG() {
+        // render bg
+        SDL_Rect srcRect, dstRect; 
+        srcRect.x = 121, srcRect.y = 105, srcRect.w = 160, srcRect.h = 16;
 
-        // render player
+        dstRect.x = 0, dstRect.w = 160, dstRect.h = 16;
+        for (int i = 0; i < 4; ++i) {
+            dstRect.y = 0;
+            foreground.render(&srcRect, &dstRect);
+
+            dstRect.y = WINDOW_HEIGHT - 16;
+            foreground.render(&srcRect, &dstRect);
+
+            dstRect.x += dstRect.w;
+        }
+
+        srcRect.x = 25, srcRect.y = 249, srcRect.w = 32, srcRect.h = 32;
+
+        dstRect.y = 16, dstRect.w = 32, dstRect.h = 32;
+        for (int i = 0; i < 14; ++i) {
+            dstRect.x = 0;
+            foreground.render(&srcRect, &dstRect);
+
+            dstRect.x = dstRect.w * 13;
+            for (int j = 0; j < 7; ++j) {
+                foreground.render(&srcRect, &dstRect);
+                dstRect.x += dstRect.w;
+            }
+            dstRect.y += dstRect.h;
+        }
+
+
+    }
+
+    void render() {
+        renderBG();
+
         player.render();
+
+        renderFG();
     }
 };
 
@@ -517,7 +562,9 @@ struct Program {
         } else {
             game.update();
         }
-        if (menu.gameStarted) {
+
+        if (menu.gameStarted == 1) {
+            menu.gameStarted = 2;
             currentScene = 1;
             game.start();
         }
