@@ -176,7 +176,7 @@ struct Player {
 
     vector<unique_ptr<Particle>> bullets;
 
-    #define DELTA_DELAY 60
+    #define DELTA_DELAY 30
     int sprite_row = 0;
     int sprite_col = 0;
     int sprite_delta = DELTA_DELAY;
@@ -283,7 +283,7 @@ struct Player {
 
         // shoot
         int currentTick = SDL_GetTicks();
-        if (pressed[KEY_SHOOT] && currentTick - lastBullet > 60) {
+        if (pressed[KEY_SHOOT] && currentTick - lastBullet > 240) {
             shoot();
             lastBullet = currentTick;
         }
@@ -442,7 +442,7 @@ struct Enemy {
     Vec2d position, direction;
     int elapsedTime = 0;
     int type, dead = 0, delay = 60;
-    int hp = 5;
+    int hp = 1;
     double velocity = 1.0;
     Enemy(Vec2d pos, Vec2d dir, double vel): position(pos), direction(dir), velocity(vel) {}
     void update() {
