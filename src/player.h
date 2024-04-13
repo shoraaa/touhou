@@ -206,4 +206,4 @@ struct Player {
         bullets = move(newBullets);
     }
 	
-}
+};
