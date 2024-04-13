@@ -18,6 +18,11 @@
 #include "particle.h"
 #endif /* PARTICLE_H_ */
 
+#ifndef PARTICLE_MANAGER_H_
+#define PARTICLE_MANAGER_H_
+#include "particleManager.h"
+#endif /* PARTICLE_MANAGER_H_ */
+
 
 extern Player player;
 extern ParticleManager particleManager;
