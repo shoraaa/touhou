@@ -1,5 +1,13 @@
+
+#ifndef FILESYSTEM_H_
+#define FILESYSTEM_H_
 #include <filesystem>
+#endif /* FILESYSTEM_H_ */
+
+#ifndef STRING_H_
+#define STRING_H_
 #include <string>
+#endif /* STRING_H_ */
 
 using namespace std;
 

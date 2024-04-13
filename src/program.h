@@ -1,83 +1,36 @@
-#include <SDL.h>
-#include <SDL_image.h>
-#include <SDL_mixer.h>
-
 #include <iostream>
-#include <stdio.h>
-#include <filesystem>
-#include <vector>
-#include <random>
-#include <string>
 
+#ifndef AUDIO_H_
+#define AUDIO_H_
 #include "audio.h"
+#endif /* AUDIO_H_ */
+
+#ifndef PLAYER_H_
+#define PLAYER_H_
 #include "player.h"
+#endif /* PLAYER_H_ */
+
+#ifndef ENEMY_H_
+#define ENEMY_H_
 #include "enemy.h"
+#endif /* ENEMY_H_ */
+
+
+#ifndef PARTICLE_H_
+#define PARTICLE_H_
 #include "particle.h"
+#endif /* PARTICLE_H_ */
 
-using namespace std;
-
-int PLAYER_LOST = 0;
 
 // global variables
 SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
-
+int PLAYER_LOST = 0;
 
 
 Player player;
 
-struct ParticleManager {
-    string texturePath;
-    Texture texture;
-    int delta = 30;
-
-    SDL_Rect srcRect;
-
-    vector<unique_ptr<Particle>> particles;
-    #define PARTICLE_WIDTH 16
-    #define PARTICLE_HEIGHT 16
-
-    void initialize() {
-        texture.load("particle");
-
-        srcRect.x = 322, srcRect.y = 57, srcRect.w = PARTICLE_WIDTH, srcRect.h = PARTICLE_HEIGHT;
-    }
-
-    void push(Vec2d pos, int radius, int velocity) {
-        Vec2d position = pos;
-        Vec2d direction = player.position - position;
-        direction = direction * (1.0 / direction.length());
-
-        unique_ptr<LinearParticle> particle = make_unique<LinearParticle>(position, direction, radius, velocity);
-        particles.emplace_back(move(particle));
-    }
-
-    void update() {
-        vector<unique_ptr<Particle>> newParticles;
-        for (auto& particle : particles) {
-            particle->update();
-            if (particle->inBound() && !particle->hit) {
-                newParticles.emplace_back(move(particle));
-            }
-        }
-        particles = move(newParticles);
-
-        for (auto& particle : particles) {
-            if (particle->collide(player.position)) {
-                PLAYER_LOST = 1;
-            }
-        }
-
-    }
-
-    void render() {
-        for (auto& particle : particles) {
-            texture.render(particle->position.x - PARTICLE_WIDTH / 2, particle->position.y - PARTICLE_HEIGHT / 2, &srcRect);
-        }
-    }
-
-} particleManager;
-
+ParticleManager particleManager;
 EnemyManager enemyManager;
 struct Scene_Gameplay {
 

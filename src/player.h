@@ -1,6 +1,23 @@
-#include "texture.h"
-#include "particle.h"
+#ifndef UTILS_H_
+#define UTILS_H_
 #include "utils.h"
+#endif /* UTILS_H_ */
+
+#ifndef TEXTURE_H_
+#define TEXTURE_H_
+#include "texture.h"
+#endif /* TEXTURE_H_ */
+
+#ifndef PARTICLE_H_
+#define PARTICLE_H_
+#include "particle.h"
+#endif /* PARTICLE_H_ */
+
+#ifndef AUDIO_H_
+#define AUDIO_H_
+#include "audio.h"
+#endif /* AUDIO_H_ */
+
 
 struct Player {
     Texture spriteTexture;

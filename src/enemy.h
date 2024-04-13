@@ -1,9 +1,20 @@
-
+#ifndef UTILS_H_
+#define UTILS_H_
 #include "utils.h"
+#endif /* UTILS_H_ */
+
+#ifndef TEXTURE_H_
+#define TEXTURE_H_
+#include "texture.h"
+#endif /* TEXTURE_H_ */
+
+#ifndef PLAYER_H_
+#define PLAYER_H_
 #include "player.h"
+#endif /* PLAYER_H_ */
+
 
 extern Player player;
-
 struct Enemy {
     Vec2d position, direction;
     int elapsedTime = 0;
