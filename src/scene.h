@@ -1,3 +1,5 @@
+#include <iostream>
+
 #ifndef AUDIO_H_
 #define AUDIO_H_
 #include "audio.h"
@@ -12,16 +14,6 @@
 #define ENEMY_H_
 #include "enemy.h"
 #endif /* ENEMY_H_ */
-
-#ifndef PARTICLE_H_
-#define PARTICLE_H_
-#include "particle.h"
-#endif /* PARTICLE_H_ */
-
-#ifndef PARTICLE_MANAGER_H_
-#define PARTICLE_MANAGER_H_
-#include "particleManager.h"
-#endif /* PARTICLE_MANAGER_H_ */
 
 struct Scene_Gameplay {
 

@@ -1,4 +1,3 @@
-#include <iostream>
 
 #ifndef SCEHE_H
 #define SCEHE_H
