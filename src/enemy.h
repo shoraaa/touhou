@@ -1,6 +1,9 @@
 
 #include "texture.h"
 #include "utils.h"
+#include "player.h"
+
+extern Player player;
 
 struct Enemy {
     Vec2d position, direction;

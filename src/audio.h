@@ -1,9 +1,8 @@
-#include <iostream>
-#include <stdio.h>
 #include <filesystem>
-#include <vector>
-#include <random>
 #include <string>
+
+using namespace std;
+
 class BGM {
 private:
     Mix_Music* music = NULL;

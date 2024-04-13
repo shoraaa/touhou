@@ -1,3 +1,7 @@
+#include "texture.h"
+#include "particle.h"
+#include "utils.h"
+
 struct Player {
     Texture spriteTexture;
     SE shootSE;
