@@ -7,18 +7,13 @@
 #include <filesystem>
 #include <vector>
 #include <random>
+#include <string>
+
+#include "audio.h"
+#include "player.h"
+#include "enemy.h"
 
 using namespace std;
-
-// Screen dimension constants
-const int WINDOW_WIDTH = 640;
-const int WINDOW_HEIGHT = 480;
-
-// Play Field dimentsion
-const int FIELD_X = 32;
-const int FIELD_Y = 16;
-const int FIELD_WIDTH = 400;
-const int FIELD_HEIGHT = WINDOW_HEIGHT - 16 * 2;
 
 int PLAYER_LOST = 0;
 
@@ -26,78 +21,6 @@ int PLAYER_LOST = 0;
 SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
 
-class Texture {
-    private:
-		SDL_Texture* texture = NULL;
-	public:
-		Texture() {}
-
-		~Texture() {
-            free();
-        }
-
-		bool load(string name) {
-            free();
-            const string path = filesystem::current_path().string() + "\\assets\\picture\\" + name + ".png";
-            texture = IMG_LoadTexture(renderer, path.c_str());
-            return texture != NULL;
-        }
-
-		void free() {
-            if (texture != NULL) {
-                SDL_DestroyTexture(texture);
-                texture = NULL;
-            }
-        }
-
-        void render(SDL_Rect* clip, SDL_Rect* dest) {
-            SDL_RenderCopy(renderer, texture, clip, dest);
-        }
-
-		void render(int x, int y, SDL_Rect* clip = NULL, double angle = 0.0, SDL_Point* center = NULL, SDL_RendererFlip flip = SDL_FLIP_NONE) {
-            SDL_Rect renderQuad = { x, y, 32, 32 };
-            if( clip != NULL ) {
-                renderQuad.w = clip->w;
-                renderQuad.h = clip->h;
-            }
-            SDL_RenderCopyEx(renderer, texture, clip, &renderQuad, angle, center, flip );
-        }
-};
-
-
-#include "audio.h"
-
-mt19937 rng(chrono::steady_clock::now().time_since_epoch().count());
-int random(int l, int r) {
-    return rng() % (r - l + 1) + l;
-}
-
-struct Vec2d {
-    double x, y;
-    Vec2d(double x = 0, double y = 0): x(x), y(y) {}
-
-    bool inPlayField() {
-        return x >= FIELD_X && x < FIELD_WIDTH && y >= FIELD_Y && y < FIELD_HEIGHT;
-    }
-
-    double distance(const Vec2d& other) {
-        return (x - other.x) * (x - other.x) + (y - other.y) * (y - other.y);
-    }
-
-    double length() {
-        return sqrt(x * x + y * y);
-    }
-
-    Vec2d operator+ (const Vec2d& a) const {
-        return Vec2d(x + a.x, y + a.y);
-    }
-     Vec2d operator- (const Vec2d& a) const {
-        return Vec2d(x - a.x, y - a.y);
-    }
-    Vec2d operator* (double k) const {
-        return Vec2d(x * k, y * k);
-    }
-};
 
 class Particle {
     public:
@@ -136,7 +59,9 @@ class LinearParticle : public Particle {
     }
 };
 
-#include "player.h"
+
+
+
 Player player;
 
 struct ParticleManager {
@@ -191,92 +116,7 @@ struct ParticleManager {
 
 } particleManager;
 
-struct Enemy {
-    Vec2d position, direction;
-    int elapsedTime = 0;
-    int type, dead = 0, delay = 60;
-    int hp = 1;
-    double velocity = 1.0;
-    int bulletRadius = 5, bulletVelocity = 1;
-    Enemy(Vec2d pos, Vec2d dir, double vel): position(pos), direction(dir), velocity(vel) {}
-    void update() {
-        if (dead) return;
-
-        position = position + direction * velocity;
-        elapsedTime++;
-
-        for (auto& bullet : player.bullets) {
-            if (bullet->collide(position)) {
-                bullet->hit = 1;
-                hp--;
-                if (hp == 0) {
-                    dead = 1;
-                    return;
-                }
-            }
-        }
-
-        delay--;
-        if (delay == 0) {
-            delay = 30;
-            particleManager.push(position, bulletRadius, bulletVelocity);
-        }
-    }
-};
-
-struct EnemyManager {
-    string texturePath;
-    Texture texture;
-    int delta = 30;
-
-    SDL_Rect srcRect;
-    #define ENEMY_WIDTH 32
-    #define ENEMY_HEIGHT 32
-
-    vector<Enemy> enemies;
-
-    void initialize() {
-        texture.load("enemy");
-
-        srcRect.x = 306, srcRect.y = 306, srcRect.w = ENEMY_WIDTH, srcRect.h = ENEMY_HEIGHT;
-    }
-
-    void update() {
-        vector<Enemy> newEnemies;
-        for (auto& enemy : enemies) {
-            enemy.update();
-            if (!enemy.dead) {
-                newEnemies.emplace_back(enemy);
-            }
-        }
-        enemies = newEnemies;
-
-        delta--;
-        if (delta == 0) {
-            delta = 30;
-            Vec2d position = Vec2d(random(FIELD_X, FIELD_X + FIELD_WIDTH - 1), FIELD_Y);
-            Vec2d direction = Vec2d(0, 1);
-
-            Enemy enemy = Enemy(position, direction, 1);
-            enemies.emplace_back(enemy);
-        }
-
-        for (auto& enemy : enemies) {
-            if (enemy.position.distance(player.position) <= 64) {
-                PLAYER_LOST = 1;
-            }
-            
-        }
-
-    }
-
-    void render() {
-        for (auto& enemy : enemies) {
-            texture.render(enemy.position.x - ENEMY_WIDTH / 2, enemy.position.y - ENEMY_HEIGHT / 2, &srcRect);
-        }
-    }
-} enemyManager;
-
+EnemyManager enemyManager;
 struct Scene_Gameplay {
 
     Texture background, foreground;
