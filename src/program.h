@@ -10,9 +10,7 @@ SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
 int PLAYER_LOST = 0;
 
-
 Player player;
-
 ParticleManager particleManager;
 EnemyManager enemyManager;
 

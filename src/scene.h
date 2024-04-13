@@ -15,6 +15,9 @@
 #include "enemy.h"
 #endif /* ENEMY_H_ */
 
+extern Player player;
+extern ParticleManager particleManager;
+extern EnemyManager enemyManager;
 struct Scene_Gameplay {
 
     Texture background, foreground;
