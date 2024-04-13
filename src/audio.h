@@ -1,4 +1,6 @@
 
+#include <SDL_mixer.h>
+
 #ifndef FILESYSTEM_H_
 #define FILESYSTEM_H_
 #include <filesystem>

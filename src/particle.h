@@ -8,6 +8,11 @@
 #include "texture.h"
 #endif /* TEXTURE_H_ */
 
+#ifndef PLAYER_H_
+#define PLAYER_H_
+#include "player.h"
+#endif /* PLAYER_H_ */
+
 
 class Particle {
     public:
@@ -47,6 +52,7 @@ class LinearParticle : public Particle {
 };
 
 extern int PLAYER_LOST;
+extern Player player;
 struct ParticleManager {
     string texturePath;
     Texture texture;

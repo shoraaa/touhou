@@ -13,8 +13,14 @@
 #include "player.h"
 #endif /* PLAYER_H_ */
 
+#ifndef PARTICLE_H_
+#define PARTICLE_H_
+#include "particle.h"
+#endif /* PARTICLE_H_ */
+
 
 extern Player player;
+extern ParticleManager particleManager;
 struct Enemy {
     Vec2d position, direction;
     int elapsedTime = 0;
