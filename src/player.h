@@ -1,24 +1,11 @@
-#ifndef UTILS_H_
-#define UTILS_H_
+#pragma once
+
 #include "utils.h"
-#endif /* UTILS_H_ */
-
-#ifndef TEXTURE_H_
-#define TEXTURE_H_
 #include "texture.h"
-#endif /* TEXTURE_H_ */
-
-#ifndef PARTICLE_H_
-#define PARTICLE_H_
 #include "particle.h"
-#endif /* PARTICLE_H_ */
-
-#ifndef AUDIO_H_
-#define AUDIO_H_
 #include "audio.h"
-#endif /* AUDIO_H_ */
 
-
+extern int PLAYER_LOST;
 struct Player {
     Texture spriteTexture;
     SE shootSE;
@@ -41,6 +28,8 @@ struct Player {
 	const double DELTA_Y = 5;
 	Vec2d position, velocity;
     Vec2d normalVelocity, slowVelocity;
+
+    int invicibleFrame = 0;
 
     int pressed[8] = { 0 };
     #define KEY_UP 0
@@ -125,6 +114,7 @@ struct Player {
     }
 
 	void update() {
+        if (invicibleFrame) invicibleFrame--;
 
         if (pressed[KEY_UP]) moveUp();
         else if (pressed[KEY_DOWN]) moveDown();
@@ -146,6 +136,16 @@ struct Player {
         updateSprite();
         updateBullets();
 	}
+
+    void gotHit() {
+        if (invicibleFrame) return;
+        if (lives == 0) {
+            // PLAYER_LOST = 1;
+            return;
+        } 
+        lives--;
+        invicibleFrame = 120;
+    }
 
 	void moveUp() {
 		position.y -= velocity.y;

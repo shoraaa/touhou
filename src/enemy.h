@@ -1,28 +1,10 @@
-#ifndef UTILS_H_
-#define UTILS_H_
+#pragma once
+
 #include "utils.h"
-#endif /* UTILS_H_ */
-
-#ifndef TEXTURE_H_
-#define TEXTURE_H_
 #include "texture.h"
-#endif /* TEXTURE_H_ */
-
-#ifndef PLAYER_H_
-#define PLAYER_H_
 #include "player.h"
-#endif /* PLAYER_H_ */
-
-#ifndef PARTICLE_H_
-#define PARTICLE_H_
 #include "particle.h"
-#endif /* PARTICLE_H_ */
-
-#ifndef PARTICLE_MANAGER_H_
-#define PARTICLE_MANAGER_H_
 #include "particleManager.h"
-#endif /* PARTICLE_MANAGER_H_ */
-
 
 extern Player player;
 extern ParticleManager particleManager;
@@ -34,6 +16,15 @@ struct Enemy {
     double velocity = 1.0;
     int bulletRadius = 5, bulletVelocity = 1;
     Enemy(Vec2d pos, Vec2d dir, double vel): position(pos), direction(dir), velocity(vel) {}
+
+    void gotHit() {
+        hp--;
+        if (hp == 0) {
+            dead = 1;
+            particleManager.playEnemyDeadAnimation(position);
+        }
+    }
+
     void update() {
         if (dead) return;
 
@@ -43,19 +34,15 @@ struct Enemy {
         for (auto& bullet : player.bullets) {
             if (bullet->collide(position)) {
                 bullet->hit = 1;
-                hp--;
-                if (hp == 0) {
-                    dead = 1;
-                    return;
-                }
+                gotHit();
             }
         }
 
-        delay--;
-        if (delay == 0) {
-            delay = 30;
-            particleManager.push(position, bulletRadius, bulletVelocity);
-        }
+        // delay--;
+        // if (delay == 0) {
+        //     delay = 30;
+        //     particleManager.push(position, bulletRadius, bulletVelocity);
+        // }
     }
 };
 
@@ -77,7 +64,7 @@ struct EnemyManager {
         srcRect.x = 306, srcRect.y = 306, srcRect.w = ENEMY_WIDTH, srcRect.h = ENEMY_HEIGHT;
     }
 
-    void update() {
+    void updateEnemies() {
         vector<Enemy> newEnemies;
         for (auto& enemy : enemies) {
             enemy.update();
@@ -87,6 +74,14 @@ struct EnemyManager {
         }
         enemies = newEnemies;
 
+        for (auto& enemy : enemies) {
+            if (enemy.position.distance(player.position) <= 64) {
+                player.gotHit();
+            }
+        }
+    }
+
+    void generateEnemies() {
         delta--;
         if (delta == 0) {
             delta = 30;
@@ -96,14 +91,11 @@ struct EnemyManager {
             Enemy enemy = Enemy(position, direction, 1);
             enemies.emplace_back(enemy);
         }
+    }
 
-        for (auto& enemy : enemies) {
-            if (enemy.position.distance(player.position) <= 64) {
-                PLAYER_LOST = 1;
-            }
-            
-        }
-
+    void update() {
+        updateEnemies();
+        generateEnemies();
     }
 
     void render() {

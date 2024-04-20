@@ -1,13 +1,7 @@
-#ifndef UTILS_H_
-#define UTILS_H_
+#pragma once
+
 #include "utils.h"
-#endif /* UTILS_H_ */
-
-#ifndef TEXTURE_H_
-#define TEXTURE_H_
 #include "texture.h"
-#endif /* TEXTURE_H_ */
-
 
 class Particle {
     public:

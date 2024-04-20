@@ -1,19 +1,10 @@
+#pragma once
+
 #include <iostream>
 
-#ifndef AUDIO_H_
-#define AUDIO_H_
 #include "audio.h"
-#endif /* AUDIO_H_ */
-
-#ifndef PLAYER_H_
-#define PLAYER_H_
 #include "player.h"
-#endif /* PLAYER_H_ */
-
-#ifndef ENEMY_H_
-#define ENEMY_H_
 #include "enemy.h"
-#endif /* ENEMY_H_ */
 
 extern Player player;
 extern ParticleManager particleManager;

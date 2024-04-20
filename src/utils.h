@@ -1,3 +1,5 @@
+#pragma once
+
 #include "const.h"
 #include <random>
 

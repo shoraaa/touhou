@@ -1,25 +1,24 @@
-#ifndef PLAYER_H_
-#define PLAYER_H_
+#pragma once
+
 #include "player.h"
-#endif /* PLAYER_H_ */
 
 extern Player player;
-extern int PLAYER_LOST;
 struct ParticleManager {
     string texturePath;
     Texture texture;
     int delta = 30;
 
-    SDL_Rect srcRect;
+    SDL_Rect bulletRect, deadRect;
 
     vector<unique_ptr<Particle>> particles;
-    #define PARTICLE_WIDTH 16
-    #define PARTICLE_HEIGHT 16
+
+    vector<pair<Vec2d, int>> enemyDeadState;
 
     void initialize() {
-        texture.load("particle");
+        texture.load("particle"); 
+        bulletRect.x = 322, bulletRect.y = 57, bulletRect.w = 16, bulletRect.h = 16;
+        deadRect.x = 57, deadRect.y = 25, deadRect.w = 32, deadRect.h = 32;
 
-        srcRect.x = 322, srcRect.y = 57, srcRect.w = PARTICLE_WIDTH, srcRect.h = PARTICLE_HEIGHT;
     }
 
     void push(Vec2d pos, int radius, int velocity) {
@@ -31,7 +30,7 @@ struct ParticleManager {
         particles.emplace_back(move(particle));
     }
 
-    void update() {
+    void updateBullets() {
         vector<unique_ptr<Particle>> newParticles;
         for (auto& particle : particles) {
             particle->update();
@@ -43,16 +42,49 @@ struct ParticleManager {
 
         for (auto& particle : particles) {
             if (particle->collide(player.position)) {
-                PLAYER_LOST = 1;
+                player.gotHit();
             }
         }
+    }
+
+    void updateDeadAnimation() {
+        vector<pair<Vec2d, int>> newEnemyDeadState;
+        for (auto& p : enemyDeadState) {
+            auto pos = p.first;
+            int frame = p.second;
+
+            deadRect.w += frame;
+            deadRect.h += frame;
+
+            texture.render(pos.x - deadRect.w / 2, pos.y - deadRect.h / 2, &deadRect, frame);
+
+            deadRect.w -= frame;
+            deadRect.h -= frame;
+
+            frame++;
+            if (frame < 30) {
+                newEnemyDeadState.push_back(p);
+            }
+
+        }
+        enemyDeadState = newEnemyDeadState;
+    }
+
+    void update() {
+        updateBullets();
+        updateDeadAnimation();
 
     }
 
     void render() {
         for (auto& particle : particles) {
-            texture.render(particle->position.x - PARTICLE_WIDTH / 2, particle->position.y - PARTICLE_HEIGHT / 2, &srcRect);
+            texture.render(particle->position.x - bulletRect.w / 2, particle->position.y - bulletRect.h / 2, &bulletRect);
         }
+    }
+
+
+    void playEnemyDeadAnimation(Vec2d pos) {
+        enemyDeadState.emplace_back(pos, 0);
     }
 
 };
