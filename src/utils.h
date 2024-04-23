@@ -13,7 +13,7 @@ struct Vec2d {
     Vec2d(double x = 0, double y = 0): x(x), y(y) {}
 
     bool inPlayField() {
-        return x >= FIELD_X && x < FIELD_WIDTH && y >= FIELD_Y && y < FIELD_HEIGHT;
+        return x >= FIELD_X && x <= FIELD_X + FIELD_WIDTH - 4 && y >= FIELD_Y && y <= FIELD_Y + FIELD_HEIGHT;
     }
 
     double distance(const Vec2d& other) {

@@ -10,15 +10,18 @@ struct Player {
     Texture spriteTexture;
     SE shootSE;
     int lives = 3;
+    int score = 0;
+    int kills = 0;
+    int power = 1;
 
     SDL_Rect srcRect[2][8], bulletSrcRect;
     SDL_Rect dstRect;
-    int lastBullet = 0, currentPowerLv = 1;
+    int lastBullet = 0;
     int bulletRadius = 16, bulletVelocity = 12;
 
     vector<unique_ptr<Particle>> bullets;
 
-    #define DELTA_DELAY 30
+    #define DELTA_DELAY 16
     int sprite_row = 0;
     int sprite_col = 0;
     int sprite_delta = DELTA_DELAY;
@@ -47,7 +50,7 @@ struct Player {
     #define BULLET_HEIGHT 32
 
     void initialize() {
-        spriteTexture.load("marisa");
+        spriteTexture.load("reimu");
         position = Vec2d(FIELD_X + FIELD_WIDTH / 2, FIELD_HEIGHT - 32);
         velocity = Vec2d(5, 5);
 
@@ -76,11 +79,10 @@ struct Player {
     }
 
     void render() {
-        spriteTexture.render(position.x - SPRITE_WIDTH / 2, position.y - SPRITE_HEIGHT / 2, 
-                            &srcRect[!idle][sprite_col], 0.0, NULL, movingRight ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
+        spriteTexture.render(position.x, position.y, &srcRect[!idle][sprite_col], SPRITE_WIDTH, SPRITE_HEIGHT, 0.0, NULL, movingRight ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
 
         for (auto& particle : bullets) {
-            spriteTexture.render(particle->position.x - BULLET_WIDTH / 2, particle->position.y - BULLET_HEIGHT / 2, &bulletSrcRect);
+            spriteTexture.render(particle->position.x, particle->position.y, &bulletSrcRect);
         }
     }
 
@@ -134,8 +136,16 @@ struct Player {
         }
 
         updateSprite();
-        updateBullets();
+        // updateBullets();
 	}
+
+    void increaseScore(int value) {
+        score += value;
+    }
+
+    void increasePower(int value) {
+        power += value;
+    }
 
     void gotHit() {
         if (invicibleFrame) return;
@@ -194,7 +204,8 @@ struct Player {
 
     void shoot() {
         shootSE.play();
-        switch (currentPowerLv) {
+        int powerLV = min(1, power % 10);
+        switch (powerLV) {
             case 1: 
                 unique_ptr<LinearParticle> bullet = make_unique<LinearParticle>(position, Vec2d(0, -1), bulletRadius, bulletVelocity);
                 bullets.emplace_back(move(bullet));
@@ -217,14 +228,6 @@ struct Player {
     }
 
     void updateBullets() {
-        vector<unique_ptr<Particle>> newBullets;
-        for (auto& bullet : bullets) {
-            bullet->update();
-            if (bullet->inBound() && !bullet->hit) {
-                newBullets.emplace_back(move(bullet));
-            }
-        }
-        bullets = move(newBullets);
-    }
+
 	
 };

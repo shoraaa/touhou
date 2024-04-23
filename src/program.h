@@ -41,8 +41,8 @@ struct Program {
             printf( "SDL_mixer could not initialize! SDL_mixer Error: %s\n", Mix_GetError() );
             return 0;
         }
-
-        Mix_MasterVolume(32);
+        Mix_VolumeMusic(0);
+        Mix_MasterVolume(0);
 
         renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
         if(renderer == NULL) {

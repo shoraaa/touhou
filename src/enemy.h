@@ -5,30 +5,51 @@
 #include "player.h"
 #include "particle.h"
 #include "particleManager.h"
+#include "audio.h"
 
 extern Player player;
 extern ParticleManager particleManager;
-struct Enemy {
+
+class Enemy {
+public:
     Vec2d position, direction;
+    SE deadSE;
+    SDL_Rect srcRect;
+
     int elapsedTime = 0;
-    int type, dead = 0, delay = 60;
     int hp = 1;
     double velocity = 1.0;
-    int bulletRadius = 5, bulletVelocity = 1;
-    Enemy(Vec2d pos, Vec2d dir, double vel): position(pos), direction(dir), velocity(vel) {}
 
+    Enemy(Vec2d pos, Vec2d dir, double vel): position(pos), direction(dir), velocity(vel) {}
+    double easeIn() {
+        return elapsedTime / 80.0;
+    }
     void gotHit() {
         hp--;
         if (hp == 0) {
-            dead = 1;
             particleManager.playEnemyDeadAnimation(position);
+            deadSE.play();
+            player.kills++;
+            if (player.kills % 3 == 0) {
+                if (player.kills % 2 == 0) particleManager.dropPowerItem(position);
+                else particleManager.dropScoreItem(position);
+            }
         }
     }
 
-    void update() {
-        if (dead) return;
+    void virtual update() {}
+};
 
-        position = position + direction * velocity;
+class BlueFairy : public Enemy {
+public:
+    BlueFairy(Vec2d pos, Vec2d dir, double vel): Enemy(pos, dir, vel) {
+        srcRect.x = 306, srcRect.y = 306, srcRect.w = 32, srcRect.h = 32;
+        deadSE.load("tan00");
+    }
+    void update() override {
+        if (hp == 0) return;
+
+        position = position + direction * (velocity);
         elapsedTime++;
 
         for (auto& bullet : player.bullets) {
@@ -37,45 +58,78 @@ struct Enemy {
                 gotHit();
             }
         }
-
-        // delay--;
-        // if (delay == 0) {
-        //     delay = 30;
-        //     particleManager.push(position, bulletRadius, bulletVelocity);
-        // }
     }
 };
 
+class PinkFairy : public Enemy {
+public:
+    PinkFairy(Vec2d pos, Vec2d dir, double vel): Enemy(pos, dir, vel) {
+        srcRect.x = 306, srcRect.y = 338, srcRect.w = 32, srcRect.h = 32;
+        deadSE.load("tan00");
+    }
+    void update() override {
+        if (hp == 0) return;
+        elapsedTime++;
+        if (elapsedTime > 90 && elapsedTime <= 120) return;
+
+        if (elapsedTime == 90) {
+            int half = (FIELD_X + FIELD_WIDTH - 1) / 2;
+            if (position.x >= half) direction = Vec2d(1, 0);
+            else direction = Vec2d(-1, 0);
+            velocity /= 2;
+
+            Vec2d dir = player.position - position;
+            dir = dir * (1.0 / dir.length());
+
+            double angle = atan2(dir.y, dir.x); 
+            for (int i = -2; i <= +2; ++i) {
+                double a = angle + i * 10 * M_PI / 180.0;
+                double x = dir.length() * cos(a);
+                double y = dir.length() * sin(a);
+                particleManager.addBullet(position, Vec2d(x, y), 5, 1);
+            }
+        }
+        position = position + direction * velocity * easeIn();
+
+        for (auto& bullet : player.bullets) {
+            if (bullet->collide(position)) {
+                bullet->hit = 1;
+                gotHit();
+            }
+        }
+    }
+};
+
+#pragma once
+
+#include "utils.h"
+#include "texture.h"
+#include "particle.h"
+#include "particleManager.h"
 
 struct EnemyManager {
     string texturePath;
     Texture texture;
     int delta = 30;
 
-    SDL_Rect srcRect;
-    #define ENEMY_WIDTH 32
-    #define ENEMY_HEIGHT 32
-
-    vector<Enemy> enemies;
+    vector<unique_ptr<Enemy>> enemies;
 
     void initialize() {
         texture.load("enemy");
-
-        srcRect.x = 306, srcRect.y = 306, srcRect.w = ENEMY_WIDTH, srcRect.h = ENEMY_HEIGHT;
     }
 
     void updateEnemies() {
-        vector<Enemy> newEnemies;
+        vector<unique_ptr<Enemy>> newEnemies;
         for (auto& enemy : enemies) {
-            enemy.update();
-            if (!enemy.dead) {
-                newEnemies.emplace_back(enemy);
+            enemy->update();
+            if (enemy->hp > 0) {
+                newEnemies.emplace_back(move(enemy));
             }
         }
-        enemies = newEnemies;
+        enemies = move(newEnemies);
 
         for (auto& enemy : enemies) {
-            if (enemy.position.distance(player.position) <= 64) {
+            if (enemy->position.distance(player.position) <= 64) {
                 player.gotHit();
             }
         }
@@ -84,12 +138,16 @@ struct EnemyManager {
     void generateEnemies() {
         delta--;
         if (delta == 0) {
-            delta = 30;
+            delta = 60;
             Vec2d position = Vec2d(random(FIELD_X, FIELD_X + FIELD_WIDTH - 1), FIELD_Y);
             Vec2d direction = Vec2d(0, 1);
 
-            Enemy enemy = Enemy(position, direction, 1);
-            enemies.emplace_back(enemy);
+            unique_ptr<BlueFairy> blueFairy = make_unique<BlueFairy>(position, direction, 1);
+            enemies.emplace_back(move(blueFairy));
+
+            unique_ptr<PinkFairy> pinkFairy = make_unique<PinkFairy>(position, direction, 1);
+            enemies.emplace_back(move(pinkFairy));
+
         }
     }
 
@@ -100,7 +158,7 @@ struct EnemyManager {
 
     void render() {
         for (auto& enemy : enemies) {
-            texture.render(enemy.position.x - ENEMY_WIDTH / 2, enemy.position.y - ENEMY_HEIGHT / 2, &srcRect);
+            texture.render(enemy->position.x, enemy->position.y, &enemy->srcRect);
         }
     }
 };

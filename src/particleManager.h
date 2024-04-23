@@ -8,7 +8,7 @@ struct ParticleManager {
     Texture texture;
     int delta = 30;
 
-    SDL_Rect bulletRect, deadRect;
+    SDL_Rect deadRect;
 
     vector<unique_ptr<Particle>> particles;
 
@@ -16,7 +16,6 @@ struct ParticleManager {
 
     void initialize() {
         texture.load("particle"); 
-        bulletRect.x = 322, bulletRect.y = 57, bulletRect.w = 16, bulletRect.h = 16;
         deadRect.x = 57, deadRect.y = 25, deadRect.w = 32, deadRect.h = 32;
 
     }
@@ -42,9 +41,38 @@ struct ParticleManager {
 
         for (auto& particle : particles) {
             if (particle->collide(player.position)) {
-                player.gotHit();
+                particle->hit = 1;
+                if (particle->type == 0) { // bullet
+                    player.gotHit();
+                } else if (particle->type == 1) { // score
+                    player.increaseScore(10);
+                } else if (particle->type == 2) { // power
+                    player.increasePower(1);
+                }
             }
         }
+    }
+
+    void updatePlayerBullets() {
+        vector<unique_ptr<Particle>> newBullets;
+        for (auto& bullet : player.bullets) {
+            // bullet find a enemy to shoot
+            if (!enemyManager.enemies.size()) {
+                auto enemy = *enemyManager.enemies[0];
+                Vec2d dir = player.position - enemy.position;
+                dir = dir * (1.0 / dir.length());
+                bullet->position = bullet->initialPosition + (dir * bullet->elapsedTime);
+                bullet->elapsedTime++;
+
+            } else {
+                bullet->update();
+            }
+
+            if (bullet->inBound() && !bullet->hit) {
+                newBullets.emplace_back(move(bullet));
+            }
+        }
+        player.bullets = move(newBullets);
     }
 
     void updateDeadAnimation() {
@@ -53,17 +81,9 @@ struct ParticleManager {
             auto pos = p.first;
             int frame = p.second;
 
-            deadRect.w += frame;
-            deadRect.h += frame;
-
-            texture.render(pos.x - deadRect.w / 2, pos.y - deadRect.h / 2, &deadRect, frame);
-
-            deadRect.w -= frame;
-            deadRect.h -= frame;
-
             frame++;
-            if (frame < 30) {
-                newEnemyDeadState.push_back(p);
+            if (frame < 6) {
+                newEnemyDeadState.emplace_back(pos, frame);
             }
 
         }
@@ -72,19 +92,51 @@ struct ParticleManager {
 
     void update() {
         updateBullets();
+        updatePlayerBullets();
         updateDeadAnimation();
 
     }
 
-    void render() {
+    void renderBullets() {
         for (auto& particle : particles) {
-            texture.render(particle->position.x - bulletRect.w / 2, particle->position.y - bulletRect.h / 2, &bulletRect);
+            texture.render(particle->position.x, particle->position.y, &particle->srcRect);
         }
+    }
+
+    void renderDeadAnimation() {
+        for (auto& p : enemyDeadState) {
+            auto pos = p.first;
+            int frame = p.second;
+            texture.setAlpha(155);
+            texture.render(pos.x, pos.y, &deadRect, deadRect.w + frame * 6, deadRect.h + frame * 6, frame * 32);
+            texture.setAlpha(255);
+
+        }
+    }
+
+    void render() {
+        renderBullets();
+        renderDeadAnimation();
+    }
+
+    void addBullet(Vec2d pos, Vec2d dir, int radius, int velocity) {
+        unique_ptr<LinearParticle> particle = make_unique<LinearParticle>(pos, dir, radius, velocity);
+        particles.emplace_back(move(particle));
     }
 
 
     void playEnemyDeadAnimation(Vec2d pos) {
         enemyDeadState.emplace_back(pos, 0);
+    }
+
+    void dropPowerItem(Vec2d pos) {
+        unique_ptr<PowerItem> item = make_unique<PowerItem>(pos);
+        particles.emplace_back(move(item));
+    }
+
+    void dropScoreItem(Vec2d pos) {
+        unique_ptr<ScoreItem> item = make_unique<ScoreItem>(pos);
+        particles.emplace_back(move(item));
     }
 
 };

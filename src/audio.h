@@ -36,8 +36,8 @@ private:
 public:
     SE() {}
     ~SE() {
-        Mix_FreeChunk(se);
-        se = NULL;
+        // Mix_FreeChunk(se);
+        // se = NULL;
     }
     void load(string name) {
         string path = filesystem::current_path().string() + "\\assets\\audio\\se\\" + name + ".wav";
