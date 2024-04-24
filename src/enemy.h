@@ -121,20 +121,27 @@ public:
 };
 
 struct Rumia {
-    Vec2d position, direction;
+    Vec2d position, direction, initialPosition;
     SE deadSE, hitSE;
     SDL_Rect spriteClip;
     int spawned = 0;
 
+    int movingFrame = 0;
+
+    int currentPattern;
     vector<unique_ptr<Pattern>> patterns;
 
     int elapsedTime = 0;
-    int hp = 1000, skillDelay = 360;
+    int hp = 1000, skillDelay = 0;
     double velocity = 1.0;
+
+    #define SKILL_CD 60 * 6
 
     void initialize() {
         spriteClip = {996, 25, 32, 64};
         hitSE.load("damage00");
+
+        patterns.emplace_back(make_unique<RingPattern>());
     }
 
     void spawn() {
@@ -144,7 +151,7 @@ struct Rumia {
     }
 
     void gotHit() {
-        particleManager.playEnemyHitAnimation(position);
+        particleManager.playBossHitAnimation(position);
         hp--;
         if (hp <= 0) {
             particleManager.playEnemyDeadAnimation(position);
@@ -170,9 +177,23 @@ struct Rumia {
 
 
         skillDelay--;
-        if (skillDelay == 0) {
-            skillDelay = 60 * 6;
-            int i = random(0, patterns.size() - 1);
+        if (skillDelay <= 0) {
+            skillDelay = SKILL_CD;
+            currentPattern = random(0, patterns.size() - 1);
+            patterns[currentPattern]->initialize(position);
+
+            Vec2d nextPosition = Vec2d(random(FIELD_X + 16, FIELD_X2 - 16), random(FIELD_Y + 16, FIELD_Y + 200));
+            initialPosition = position;
+            direction = nextPosition - position;
+            movingFrame = 0;
+        } else {
+            patterns[currentPattern]->update(position);
+
+            if (movingFrame < 45) {
+                position = initialPosition + direction * easeIn(movingFrame / 60.0);
+                movingFrame++;
+            }
+
 
         }
 

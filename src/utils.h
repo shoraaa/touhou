@@ -53,3 +53,7 @@ double easeIn(double t, double p = 2.0) {
 double easeOut(double t, double p = 2.0) {
     return 1 - pow(1 - t, p);
 }
+
+double easeInOut(double t) {
+    return t * t - (3 - 2 * t);
+}

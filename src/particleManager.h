@@ -176,6 +176,15 @@ struct ParticleManager {
         }
     }
 
+    void playBossHitAnimation(Vec2d pos) {
+        for (int i = 0; i < 8; ++i) {
+            Vec2d dir = getRandomPoint() - pos;
+            dir = dir.normalized();
+            dir.x = -dir.x; dir.y = -dir.y;
+            enemyDeadParticles.emplace_back(pos, dir);
+        }
+    }
+
 
     void dropPowerItem(Vec2d pos) {
         unique_ptr<PowerItem> item = make_unique<PowerItem>(pos);

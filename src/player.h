@@ -14,7 +14,7 @@ struct Player {
     int kills = 0;
     int power = 1;
 
-    SDL_Rect spriteClip[2][8], bulletClip, chaseBulletClip, taoClip;
+    SDL_Rect spriteClip[2][7], bulletClip, chaseBulletClip, taoClip;
 
     int lastBullet = 0;
     int bulletRadius = 16, bulletVelocity = 12;
@@ -69,7 +69,7 @@ struct Player {
         // source rectangle
         for (int i = 0, y = 25; i < 2; ++i) {
             int x = 868;
-            for (int j = 0; j < 8; ++j) {
+            for (int j = 0; j < 7; ++j) {
                 spriteClip[i][j] = {x, y, SPRITE_WIDTH, SPRITE_HEIGHT};
                 x += SPRITE_WIDTH;
             }
@@ -343,7 +343,7 @@ struct Player {
             if (idle) {
                 if (sprite_col == 4) sprite_col = 0;
             } else {
-                if (sprite_col == 8) sprite_col = 2;
+                if (sprite_col == 7) sprite_col = 2;
             }
         }
     }
