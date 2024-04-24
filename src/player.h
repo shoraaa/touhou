@@ -8,21 +8,25 @@
 extern int PLAYER_LOST;
 struct Player {
     Texture spriteTexture;
-    SE shootSE;
+    SE shootSE, deadSE, itemSE;
     int lives = 3;
     int score = 0;
     int kills = 0;
     int power = 1;
 
-    SDL_Rect srcRect[2][8], bulletSrcRect;
-    SDL_Rect dstRect;
+    SDL_Rect spriteClip[2][8], bulletClip, chaseBulletClip, taoClip;
+
     int lastBullet = 0;
-    int bulletRadius = 16, bulletVelocity = 5;
-    #define BULLET_DELAY 180
+    int bulletRadius = 16, bulletVelocity = 12;
+    #define BULLET_DELAY 90
 
-    vector<unique_ptr<Particle>> bullets;
+    int lastChaseBullet = 0;
+    int chaseBulletRadius = 16, chaseBulletVelocity = 4;
+    #define CHASE_BULLET_DELAY 360
 
-    #define DELTA_DELAY 16
+    vector<unique_ptr<Particle>> bullets, chaseBullets;
+
+    #define DELTA_DELAY 8
     int sprite_row = 0;
     int sprite_col = 0;
     int sprite_delta = DELTA_DELAY;
@@ -59,32 +63,49 @@ struct Player {
         slowVelocity = Vec2d(2.5, 2.5);
 
         shootSE.load("plst00");
+        deadSE.load("pldead00");
+        itemSE.load("item00");
 
         // source rectangle
         for (int i = 0, y = 25; i < 2; ++i) {
             int x = 868;
             for (int j = 0; j < 8; ++j) {
-                srcRect[i][j].w = SPRITE_WIDTH, srcRect[i][j].h = SPRITE_HEIGHT;
-                srcRect[i][j].x = x, srcRect[i][j].y = y;
+                spriteClip[i][j] = {x, y, SPRITE_WIDTH, SPRITE_HEIGHT};
                 x += SPRITE_WIDTH;
             }
-
-            if (i == 0) {
-                bulletSrcRect.w = BULLET_WIDTH, bulletSrcRect.h = BULLET_HEIGHT;
-                bulletSrcRect.x = 996, bulletSrcRect.y = y;
-            }
-
             y += SPRITE_HEIGHT;
         }
+
+        bulletClip = {996, 25, BULLET_WIDTH, BULLET_HEIGHT};
+        chaseBulletClip = {996 + BULLET_WIDTH, 25, BULLET_WIDTH, BULLET_HEIGHT};
+        taoClip = {996, 25 + BULLET_HEIGHT, BULLET_WIDTH, BULLET_HEIGHT};
 
     }
 
     void render() {
-        spriteTexture.render(position.x, position.y, &srcRect[!idle][sprite_col], SPRITE_WIDTH, SPRITE_HEIGHT, 0.0, NULL, movingRight ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
+        if (PLAYER_LOST) return;
+        int tick = SDL_GetTicks();
 
+        // player
+        if (invicibleFrame % 2 == 0) {
+            spriteTexture.render(position.x, position.y, &spriteClip[!idle][sprite_col], SPRITE_WIDTH, SPRITE_HEIGHT, 0.0, NULL, movingRight ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
+        } 
+
+        // tao
+        spriteTexture.render(position.x - 24, position.y, &taoClip, 16, 16, (tick / 4) % 360);
+        spriteTexture.render(position.x + 24, position.y, &taoClip, 16, 16, (tick / 4) % 360);
+
+
+        // normal bullet
+        spriteTexture.setAlpha(128);
         for (auto& particle : bullets) {
-            spriteTexture.render(particle->position.x, particle->position.y, &bulletSrcRect);
+            spriteTexture.render(particle->position.x, particle->position.y, &bulletClip, 24, 24, particle->elapsedTime * 8);
         }
+        // chase bullet
+        for (auto& particle : chaseBullets) {
+            spriteTexture.render(particle->position.x, particle->position.y, &chaseBulletClip, 20, 20, particle->elapsedTime * 8);
+        }
+        spriteTexture.setAlpha(255);
     }
 
     void handleInput(const SDL_Event& e) {
@@ -117,6 +138,8 @@ struct Player {
     }
 
 	void update() {
+        if (PLAYER_LOST) return;
+
         if (invicibleFrame) invicibleFrame--;
 
         if (pressed[KEY_UP]) moveUp();
@@ -130,10 +153,8 @@ struct Player {
         else velocity = normalVelocity; 
 
         // shoot
-        int currentTick = SDL_GetTicks();
-        if (pressed[KEY_SHOOT] && currentTick - lastBullet > BULLET_DELAY) {
+        if (pressed[KEY_SHOOT]) {
             shoot();
-            lastBullet = currentTick;
         }
 
         updateSprite();
@@ -142,21 +163,27 @@ struct Player {
 
     void increaseScore(int value) {
         score += value;
+        itemSE.play();
     }
 
     void increasePower(int value) {
         power += value;
+        itemSE.play();
     }
 
-    void gotHit() {
-        if (invicibleFrame) return;
+    bool gotHit() {
+        if (PLAYER_LOST) return 0;
+
+        if (invicibleFrame) return 0;
+
+        deadSE.play();
         if (lives == 0) {
-            // PLAYER_LOST = 1;
-            return;
+            PLAYER_LOST = 1;
+            return 1;
         } 
         lives--;
         invicibleFrame = 120;
-        
+        return 1;
     }
 
 	void moveUp() {
@@ -206,17 +233,102 @@ struct Player {
 
     void shoot() {
         shootSE.play();
-        int powerLV = max(1, min(7, power / 3));
-        int offset = (powerLV / 2) * 10;
-        for (int i = 0; i < powerLV; ++i) {
-            Vec2d pos = position; pos.x += -offset + i * 10;
-            unique_ptr<LinearParticle> bullet = make_unique<LinearParticle>(pos, Vec2d(0, -1), bulletRadius, bulletVelocity);
-            bullets.emplace_back(move(bullet));
+        // int powerLV = max(1, min(7, power / 3));
+        // int offset = (powerLV / 2) * 10;
+        // for (int i = 0; i < powerLV; ++i) {
+        //     Vec2d pos = position; pos.x += -offset + i * 10;
+        //     unique_ptr<PlayerBullet> bullet = make_unique<PlayerBullet>(pos, Vec2d(0, -1), bulletRadius, bulletVelocity);
+        //     bullets.emplace_back(move(bullet));
+        // }
+
+        int powerLV = 4;
+
+        int currentTick = SDL_GetTicks();
+        if (powerLV == 1) {
+            int currentTick = SDL_GetTicks();
+            if (currentTick - lastBullet > BULLET_DELAY) {
+                unique_ptr<PlayerBullet> bullet = make_unique<PlayerBullet>(position, Vec2d(0, -1), bulletRadius, bulletVelocity);
+                bullets.emplace_back(move(bullet));
+
+                lastBullet = currentTick;
+            }
+        } else if (powerLV == 2) {
+
+            if (currentTick - lastBullet > BULLET_DELAY) {
+                unique_ptr<PlayerBullet> bulletLeft = make_unique<PlayerBullet>(Vec2d(position.x - 8, position.y - 4), Vec2d(0, -1), bulletRadius, bulletVelocity);
+                unique_ptr<PlayerBullet> bulletRight = make_unique<PlayerBullet>(Vec2d(position.x + 8, position.y - 4), Vec2d(0, -1), bulletRadius, bulletVelocity);
+                bullets.emplace_back(move(bulletLeft));
+                bullets.emplace_back(move(bulletRight));
+
+                lastBullet = currentTick;
+            }
+
+            if (currentTick - lastChaseBullet > CHASE_BULLET_DELAY) {
+                unique_ptr<PlayerBullet> chaseBulletLeft = make_unique<PlayerBullet>(Vec2d(position.x - 16, position.y), Vec2d(0, -1), chaseBulletRadius, chaseBulletVelocity);
+                unique_ptr<PlayerBullet> chaseBulletRight = make_unique<PlayerBullet>(Vec2d(position.x + 16, position.y), Vec2d(0, -1), chaseBulletRadius, chaseBulletVelocity);
+                chaseBullets.emplace_back(move(chaseBulletLeft));
+                chaseBullets.emplace_back(move(chaseBulletRight));
+
+                lastChaseBullet = currentTick;
+            }
+        } else if (powerLV == 3) {
+
+            if (currentTick - lastBullet > BULLET_DELAY) {
+                Vec2d dir = Vec2d(0, -1);
+
+                double angle = atan2(dir.y, dir.x); 
+                for (int i = -1; i <= +1; ++i) {
+                    double a = angle + i * 5 * M_PI / 180.0;
+                    double x = dir.length() * cos(a);
+                    double y = dir.length() * sin(a);
+                    unique_ptr<PlayerBullet> bullet = make_unique<PlayerBullet>(position, Vec2d(x, y), bulletRadius, bulletVelocity);
+                    bullets.emplace_back(move(bullet));
+                }
+
+                lastBullet = currentTick;
+            }
+
+
+            if (currentTick - lastChaseBullet > CHASE_BULLET_DELAY / 2) {
+                unique_ptr<PlayerBullet> chaseBulletLeft = make_unique<PlayerBullet>(Vec2d(position.x - 16, position.y), Vec2d(0, -1), chaseBulletRadius, chaseBulletVelocity * 2);
+                unique_ptr<PlayerBullet> chaseBulletRight = make_unique<PlayerBullet>(Vec2d(position.x + 16, position.y), Vec2d(0, -1), chaseBulletRadius, chaseBulletVelocity * 2);
+                chaseBullets.emplace_back(move(chaseBulletLeft));
+                chaseBullets.emplace_back(move(chaseBulletRight));
+
+                lastChaseBullet = currentTick;
+            }
+        } else {
+
+             if (currentTick - lastBullet > BULLET_DELAY) {
+                Vec2d dir = Vec2d(0, -1);
+
+                double angle = atan2(dir.y, dir.x); 
+                for (int i = -2; i <= +2; ++i) {
+                    double a = angle + i * 5 * M_PI / 180.0;
+                    double x = dir.length() * cos(a);
+                    double y = dir.length() * sin(a);
+                    unique_ptr<PlayerBullet> bullet = make_unique<PlayerBullet>(position, Vec2d(x, y), bulletRadius, bulletVelocity);
+                    bullets.emplace_back(move(bullet));
+                }
+
+                lastBullet = currentTick;
+            }
+
+
+            if (currentTick - lastChaseBullet > CHASE_BULLET_DELAY / 3) {
+                unique_ptr<PlayerBullet> chaseBulletLeft = make_unique<PlayerBullet>(Vec2d(position.x - 16, position.y), Vec2d(0, -1), chaseBulletRadius, chaseBulletVelocity * 2);
+                unique_ptr<PlayerBullet> chaseBulletRight = make_unique<PlayerBullet>(Vec2d(position.x + 16, position.y), Vec2d(0, -1), chaseBulletRadius, chaseBulletVelocity * 2);
+                chaseBullets.emplace_back(move(chaseBulletLeft));
+                chaseBullets.emplace_back(move(chaseBulletRight));
+
+                lastChaseBullet = currentTick;
+            }
+
         }
-        // int powerLV = min(1, power % 10);
+
         // switch (powerLV) {
         //     case 1: 
-        //         unique_ptr<LinearParticle> bullet = make_unique<LinearParticle>(position, Vec2d(0, -1), bulletRadius, bulletVelocity);
+        //         unique_ptr<PlayerBullet> bullet = make_unique<PlayerBullet>(position, Vec2d(0, -1), bulletRadius, bulletVelocity);
         //         bullets.emplace_back(move(bullet));
         //         break;
                 

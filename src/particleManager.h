@@ -9,6 +9,7 @@ extern Player player;
 struct HitAnimation {
     Vec2d pos, dir;
     int frame = 0;
+    HitAnimation() = default;
     HitAnimation(Vec2d pos): pos(pos) {}
     HitAnimation(Vec2d pos, Vec2d dir): pos(pos), dir(dir) {}
 };
@@ -22,21 +23,14 @@ struct ParticleManager {
     vector<unique_ptr<Particle>> particles;
 
     vector<HitAnimation> enemyDeadAnimation, enemyHitParticles, enemyDeadParticles;
+    HitAnimation playerDeadAnimation;
 
     void initialize() {
         texture.load("particle"); 
         deadRect = {25, 25, 32, 32}; 
         hitParticles = {217, 58, 16, 16};
         deadParticles = {89, 58, 16, 16};
-    }
-
-    void push(Vec2d pos, int radius, int velocity) {
-        Vec2d position = pos;
-        Vec2d direction = player.position - position;
-        direction = direction * (1.0 / direction.length());
-
-        unique_ptr<LinearParticle> particle = make_unique<LinearParticle>(position, direction, radius, velocity);
-        particles.emplace_back(move(particle));
+        playerDeadAnimation.frame = 120;
     }
 
     void updateBullets() {
@@ -53,7 +47,9 @@ struct ParticleManager {
             if (particle->collide(player.position)) {
                 particle->hit = 1;
                 if (particle->type == 0) { // bullet
-                    player.gotHit();
+                    if (player.gotHit()) {
+                        playPlayerDeadAnimation(player.position);
+                    }
                 } else if (particle->type == 1) { // score
                     player.increaseScore(10);
                 } else if (particle->type == 2) { // power
@@ -67,7 +63,7 @@ struct ParticleManager {
         vector<HitAnimation> newEnemyHitParticles;
         for (auto& a : enemyHitParticles) {
             a.frame++;
-            a.pos = a.pos + (a.dir * 3);
+            a.pos = a.pos + (a.dir * 8);
             if (a.frame < 16) {
                 newEnemyHitParticles.emplace_back(a);
             }
@@ -80,7 +76,7 @@ struct ParticleManager {
         vector<HitAnimation> newEnemyDeadParticles;
         for (auto& a : enemyDeadParticles) {
             a.frame++;
-            a.pos = a.pos + (a.dir * 3);
+            a.pos = a.pos + (a.dir * 8);
             if (a.frame < 16) {
                 newEnemyDeadParticles.emplace_back(a);
             }
@@ -97,6 +93,10 @@ struct ParticleManager {
 
         }
         enemyDeadAnimation = newEnemyDeadAnimation;
+
+        if (playerDeadAnimation.frame < 60) {
+            playerDeadAnimation.frame++;
+        }
     }
 
     void update() {
@@ -114,7 +114,7 @@ struct ParticleManager {
 
     void renderHitParticles() {
         for (auto& a : enemyHitParticles) {
-            texture.setAlpha((1.0 - (a.frame / 16.0)) * 255);
+            texture.setAlpha((1.0 - (a.frame / 16.0)) * 155);
             hitParticles.x = 217 + (a.frame / 4) * 16;
             texture.render(a.pos.x, a.pos.y, &hitParticles);
             texture.setAlpha(255);
@@ -130,9 +130,16 @@ struct ParticleManager {
         }
 
         for (auto& a : enemyDeadParticles) {
-            texture.setAlpha((1.0 - (a.frame / 16.0)) * 255);
+            texture.setAlpha((1.0 - (a.frame / 16.0)) * 155);
             deadParticles.x = 89 + (a.frame / 4) * 16;
             texture.render(a.pos.x, a.pos.y, &deadParticles);
+            texture.setAlpha(255);
+        }
+
+        if (playerDeadAnimation.frame < 60) {
+            auto a = playerDeadAnimation;
+            texture.setAlpha((1.0 - (a.frame / 8.0)) * 255);
+            texture.render(a.pos.x, a.pos.y, &deadRect, deadRect.w + a.frame * 32, deadRect.h + a.frame * 32);
             texture.setAlpha(255);
         }
     }
@@ -144,7 +151,7 @@ struct ParticleManager {
     }
 
     void addBullet(Vec2d pos, Vec2d dir, double radius, double velocity) {
-        unique_ptr<LinearParticle> particle = make_unique<LinearParticle>(pos, dir, radius, velocity);
+        unique_ptr<EnemyBullet> particle = make_unique<EnemyBullet>(pos, dir, radius, velocity);
         particles.emplace_back(move(particle));
     }
 
@@ -157,7 +164,11 @@ struct ParticleManager {
         enemyDeadParticles.emplace_back(pos, dir);
     }
 
-    void playEnemyHit(Vec2d pos) {
+    void playPlayerDeadAnimation(Vec2d pos) {
+        playerDeadAnimation = HitAnimation(pos);
+    }
+
+    void playEnemyHitAnimation(Vec2d pos) {
         for (int i = 0; i < 8; ++i) {
             Vec2d dir = getRandomPoint() - pos;
             dir = dir.normalized();

@@ -17,11 +17,6 @@ class Particle {
     bool inBound() {
         return position.inPlayField();
     }
-
-    double easeOut() {
-        double p = 3.0;
-        return 1 - pow(1 - ((double)elapsedTime / totalTime), p);
-    }
     
     bool collide(Vec2d other) {
         auto x = position.x, y = position.y;
@@ -35,11 +30,11 @@ class Particle {
     virtual void update() {}
 };
 
-class LinearParticle : public Particle {
+class EnemyBullet : public Particle {
     // vector linear
     public:
     Vec2d direction;
-    LinearParticle(Vec2d pos, Vec2d dir, double radius, double vel): Particle(pos, radius, 0), direction(dir * vel) {
+    EnemyBullet(Vec2d pos, Vec2d dir, double radius, double vel): Particle(pos, radius, 0), direction(dir * vel) {
         srcRect.x = 322, srcRect.y = 57, srcRect.w = 16, srcRect.h = 16;
 
         totalTime = std::numeric_limits<int>::max();
@@ -56,7 +51,34 @@ class LinearParticle : public Particle {
 
     }
     void update() override {
-        position = position + direction * easeOut();
+        position = position + direction * easeIn((double)elapsedTime / totalTime, 1.25);
+        position = position + direction;
+        elapsedTime++;
+    }
+};
+
+class PlayerBullet : public Particle {
+    // vector linear
+    public:
+    Vec2d direction;
+    PlayerBullet(Vec2d pos, Vec2d dir, double radius, double vel): Particle(pos, radius, 0), direction(dir * vel) {
+        srcRect.x = 322, srcRect.y = 57, srcRect.w = 16, srcRect.h = 16;
+
+        totalTime = std::numeric_limits<int>::max();
+
+        if (direction.x != 0.0) {
+            int timeToReachXEdge = (direction.x > 0.0) ? (FIELD_X2 - pos.x) / direction.x : (FIELD_X - pos.x) / direction.x;
+            totalTime = min(totalTime, timeToReachXEdge);
+        }
+
+        if (direction.y != 0.0) {
+            int timeToReachYEdge = (direction.y > 0.0) ? (FIELD_Y2 - pos.y) / direction.y : (FIELD_Y - pos.y) / direction.y;
+            totalTime = min(totalTime, timeToReachYEdge);
+        }
+
+    }
+    void update() override {
+        position = position + direction;
         elapsedTime++;
     }
 };

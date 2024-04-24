@@ -45,3 +45,11 @@ struct Vec2d {
 Vec2d getRandomPoint() {
     return Vec2d(random(FIELD_X, FIELD_X2), random(FIELD_Y, FIELD_Y2));
 }
+
+double easeIn(double t, double p = 2.0) {
+    return pow(t, p);
+}
+
+double easeOut(double t, double p = 2.0) {
+    return 1 - pow(1 - t, p);
+}

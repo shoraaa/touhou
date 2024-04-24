@@ -6,6 +6,8 @@
 #include "particle.h"
 #include "particleManager.h"
 #include "audio.h"
+#include "const.h"
+#include "pattern.h"
 
 extern Player player;
 extern ParticleManager particleManager;
@@ -15,18 +17,15 @@ class Enemy {
 public:
     Vec2d position, direction;
     SE deadSE;
-    SDL_Rect srcRect;
+    SDL_Rect spriteClip;
 
     int elapsedTime = 0;
     int hp = 1;
     double velocity = 1.0;
 
     Enemy(Vec2d pos, Vec2d dir, double vel): position(pos), direction(dir), velocity(vel) {}
-    double easeIn() {
-        return elapsedTime / 80.0;
-    }
     void gotHit() {
-        particleManager.playEnemyHit(position);
+        particleManager.playEnemyHitAnimation(position);
         hp--;
         if (hp == 0) {
             particleManager.playEnemyDeadAnimation(position);
@@ -45,16 +44,25 @@ public:
 class BlueFairy : public Enemy {
 public:
     BlueFairy(Vec2d pos, Vec2d dir, double vel): Enemy(pos, dir, vel) {
-        srcRect.x = 306, srcRect.y = 306, srcRect.w = 32, srcRect.h = 32;
+        spriteClip.x = 306, spriteClip.y = 306, spriteClip.w = 32, spriteClip.h = 32;
         deadSE.load("tan00");
     }
     void update() override {
         if (hp == 0) return;
 
-        position = position + direction * (velocity);
+        position = position + direction * velocity;
         elapsedTime++;
 
         for (auto& bullet : player.bullets) {
+            if (bullet->collide(position)) {
+                bullet->hit = 1;
+                gotHit();
+            }
+        }
+
+        if (hp == 0) return;
+
+        for (auto& bullet : player.chaseBullets) {
             if (bullet->collide(position)) {
                 bullet->hit = 1;
                 gotHit();
@@ -66,7 +74,7 @@ public:
 class PinkFairy : public Enemy {
 public:
     PinkFairy(Vec2d pos, Vec2d dir, double vel): Enemy(pos, dir, vel) {
-        srcRect.x = 306, srcRect.y = 338, srcRect.w = 32, srcRect.h = 32;
+        spriteClip.x = 306, spriteClip.y = 338, spriteClip.w = 32, spriteClip.h = 32;
         deadSE.load("tan00");
         hp = 3;
     }
@@ -89,12 +97,21 @@ public:
                 double a = angle + i * 10 * M_PI / 180.0;
                 double x = dir.length() * cos(a);
                 double y = dir.length() * sin(a);
-                particleManager.addBullet(position, Vec2d(x, y), 5, 3);
+                particleManager.addBullet(position, Vec2d(x, y), 5, 2);
             }
         }
-        position = position + direction * velocity * easeIn();
+        position = position + direction * velocity * elapsedTime / 90.0;
 
         for (auto& bullet : player.bullets) {
+            if (bullet->collide(position)) {
+                bullet->hit = 1;
+                gotHit();
+            }
+        }
+
+        if (hp == 0) return;
+
+        for (auto& bullet : player.chaseBullets) {
             if (bullet->collide(position)) {
                 bullet->hit = 1;
                 gotHit();
@@ -103,33 +120,64 @@ public:
     }
 };
 
-struct Boss {
+struct Rumia {
     Vec2d position, direction;
-    SE deadSE;
-    SDL_Rect srcRect;
+    SE deadSE, hitSE;
+    SDL_Rect spriteClip;
+    int spawned = 0;
+
+    vector<unique_ptr<Pattern>> patterns;
 
     int elapsedTime = 0;
-    int hp = 1;
+    int hp = 1000, skillDelay = 360;
     double velocity = 1.0;
 
-    Boss() {}
-    double easeIn() {
-        return elapsedTime / 80.0;
+    void initialize() {
+        spriteClip = {996, 25, 32, 64};
+        hitSE.load("damage00");
     }
+
+    void spawn() {
+        spawned = 1;
+        position = Vec2d(FIELD_X + FIELD_WIDTH / 2, 64);
+        cout << "Rumia spawned!\n";
+    }
+
     void gotHit() {
+        particleManager.playEnemyHitAnimation(position);
         hp--;
-        if (hp == 0) {
+        if (hp <= 0) {
             particleManager.playEnemyDeadAnimation(position);
             deadSE.play();
-            player.kills++;
-            if (player.kills % 3 == 0) {
-                if (player.kills % 2 == 0) particleManager.dropPowerItem(position);
-                else particleManager.dropScoreItem(position);
-            }
         }
     }
 
-    void virtual update() {}  
+    void update() {
+        if (hp <= 0) return;
+
+        for (auto& bullet : player.bullets) {
+            if (bullet->collide(position)) {
+                bullet->hit = 1;
+                gotHit();
+            }
+        }
+        for (auto& bullet : player.chaseBullets) {
+            if (bullet->collide(position)) {
+                bullet->hit = 1;
+                gotHit();
+            }
+        }
+
+
+        skillDelay--;
+        if (skillDelay == 0) {
+            skillDelay = 60 * 6;
+            int i = random(0, patterns.size() - 1);
+
+        }
+
+
+    }
 };
 
 struct EnemyManager {
@@ -137,19 +185,31 @@ struct EnemyManager {
     Texture texture;
 
     vector<unique_ptr<Enemy>> enemies;
+    Rumia rumia;
 
 
     void initialize() {
         texture.load("enemy");
+        rumia.initialize();
     }
 
     void updatePlayerBullets() {
         vector<unique_ptr<Particle>> newBullets;
         for (auto& bullet : player.bullets) {
+            bullet->update();
+
+            if (bullet->inBound() && !bullet->hit) {
+                newBullets.emplace_back(move(bullet));
+            }
+        }
+        player.bullets = move(newBullets);
+
+        vector<unique_ptr<Particle>> newChaseBullets;
+        for (auto& bullet : player.chaseBullets) {
             // bullet find a enemy to shoot
-            if (enemies.size()) {
-                auto enemy = *enemies[0];
-                Vec2d dir = enemy.position - bullet->position;
+            if (enemies.size() || rumia.spawned) {
+                auto position = rumia.spawned ? rumia.position : (*enemies[0]).position;
+                Vec2d dir = position - bullet->position;
                 dir = dir * (1.0 / dir.length());
                 bullet->position = bullet->position + (dir * (bullet->elapsedTime / 3.0));
                 bullet->elapsedTime++;
@@ -158,10 +218,10 @@ struct EnemyManager {
             }
 
             if (bullet->inBound() && !bullet->hit) {
-                newBullets.emplace_back(move(bullet));
+                newChaseBullets.emplace_back(move(bullet));
             }
         }
-        player.bullets = move(newBullets);
+        player.chaseBullets = move(newChaseBullets);
     }
 
     void updateEnemies() {
@@ -212,16 +272,23 @@ struct EnemyManager {
 
     void update() {
         updateEnemies();
-        if (elapsed_frame <= 3000) {
+        if (0 && elapsed_frame <= 60 * 30) {
            generateEnemies();
         } else {
-            
+            if (!rumia.spawned) {
+                rumia.spawn();
+            } else {
+                rumia.update();
+            }
         }
     }
 
     void render() {
         for (auto& enemy : enemies) {
-            texture.render(enemy->position.x, enemy->position.y, &enemy->srcRect);
+            texture.render(enemy->position.x, enemy->position.y, &enemy->spriteClip);
+        }
+        if (rumia.spawned) {
+            texture.render(rumia.position.x, rumia.position.y, &rumia.spriteClip);
         }
     }
 };

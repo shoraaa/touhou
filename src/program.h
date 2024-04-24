@@ -110,8 +110,6 @@ struct Program {
                 
             }	
 
-            if (PLAYER_LOST) continue;
-
             update();
             
             render();
