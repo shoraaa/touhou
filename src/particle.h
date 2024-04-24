@@ -1,12 +1,14 @@
 #pragma once
 
+#include "const.h"
 #include "utils.h"
 #include "texture.h"
 #include "player.h"
 class Particle {
     public:
     Vec2d initialPosition, position;
-    int elapsedTime = 0, hit = 0, radius = 5, type = -1;
+    int elapsedTime = 0, totalTime = 0;
+    int hit = 0, radius = 5, type = -1;
     SDL_Rect srcRect;
 
     Particle() = default;
@@ -14,6 +16,11 @@ class Particle {
 
     bool inBound() {
         return position.inPlayField();
+    }
+
+    double easeOut() {
+        double p = 3.0;
+        return 1 - pow(1 - ((double)elapsedTime / totalTime), p);
     }
     
     bool collide(Vec2d other) {
@@ -32,12 +39,24 @@ class LinearParticle : public Particle {
     // vector linear
     public:
     Vec2d direction;
-    double velocity = 1.0;
-    LinearParticle(Vec2d pos, Vec2d dir, double radius, double vel): Particle(pos, radius, 0), direction(dir), velocity(vel) {
+    LinearParticle(Vec2d pos, Vec2d dir, double radius, double vel): Particle(pos, radius, 0), direction(dir * vel) {
         srcRect.x = 322, srcRect.y = 57, srcRect.w = 16, srcRect.h = 16;
+
+        totalTime = std::numeric_limits<int>::max();
+
+        if (direction.x != 0.0) {
+            int timeToReachXEdge = (direction.x > 0.0) ? (FIELD_X2 - pos.x) / direction.x : (FIELD_X - pos.x) / direction.x;
+            totalTime = min(totalTime, timeToReachXEdge);
+        }
+
+        if (direction.y != 0.0) {
+            int timeToReachYEdge = (direction.y > 0.0) ? (FIELD_Y2 - pos.y) / direction.y : (FIELD_Y - pos.y) / direction.y;
+            totalTime = min(totalTime, timeToReachYEdge);
+        }
+
     }
     void update() override {
-        position = initialPosition + (direction * velocity * elapsedTime);
+        position = position + direction * easeOut();
         elapsedTime++;
     }
 };

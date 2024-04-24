@@ -8,6 +8,7 @@ SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
 int PLAYER_LOST = 0;
 
+int elapsed_frame = 0;
 Player player;
 ParticleManager particleManager;
 EnemyManager enemyManager;
@@ -41,8 +42,8 @@ struct Program {
             printf( "SDL_mixer could not initialize! SDL_mixer Error: %s\n", Mix_GetError() );
             return 0;
         }
-        Mix_VolumeMusic(0);
-        Mix_MasterVolume(0);
+        Mix_VolumeMusic(16);
+        Mix_MasterVolume(16);
 
         renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
         if(renderer == NULL) {
@@ -93,8 +94,14 @@ struct Program {
 	void loop() {
 		SDL_Event e; 
 		bool quit = false; 
+
+        unsigned int a, b = 0;
         
 		while (!quit) { 
+
+            a = SDL_GetTicks();
+            if (a - b <= 1000.0 / 60) continue;
+            b = a;
             
             while (SDL_PollEvent(&e)) { 
                 if (e.type == SDL_QUIT) quit = true;

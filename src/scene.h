@@ -45,6 +45,7 @@ struct Scene_Gameplay {
         if (scrollingOffset >= WINDOW_HEIGHT) {
             scrollingOffset = 0;
         }
+        elapsed_frame++;
 
         player.update();
         enemyManager.update();

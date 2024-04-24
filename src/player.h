@@ -17,7 +17,8 @@ struct Player {
     SDL_Rect srcRect[2][8], bulletSrcRect;
     SDL_Rect dstRect;
     int lastBullet = 0;
-    int bulletRadius = 16, bulletVelocity = 12;
+    int bulletRadius = 16, bulletVelocity = 5;
+    #define BULLET_DELAY 180
 
     vector<unique_ptr<Particle>> bullets;
 
@@ -47,7 +48,7 @@ struct Player {
     #define SPRITE_HEIGHT 48
 
     #define BULLET_WIDTH 16
-    #define BULLET_HEIGHT 32
+    #define BULLET_HEIGHT 16
 
     void initialize() {
         spriteTexture.load("reimu");
@@ -130,7 +131,7 @@ struct Player {
 
         // shoot
         int currentTick = SDL_GetTicks();
-        if (pressed[KEY_SHOOT] && currentTick - lastBullet > 120) {
+        if (pressed[KEY_SHOOT] && currentTick - lastBullet > BULLET_DELAY) {
             shoot();
             lastBullet = currentTick;
         }
@@ -155,6 +156,7 @@ struct Player {
         } 
         lives--;
         invicibleFrame = 120;
+        
     }
 
 	void moveUp() {
@@ -204,14 +206,21 @@ struct Player {
 
     void shoot() {
         shootSE.play();
-        int powerLV = min(1, power % 10);
-        switch (powerLV) {
-            case 1: 
-                unique_ptr<LinearParticle> bullet = make_unique<LinearParticle>(position, Vec2d(0, -1), bulletRadius, bulletVelocity);
-                bullets.emplace_back(move(bullet));
-                break;
-                
+        int powerLV = max(1, min(7, power / 3));
+        int offset = (powerLV / 2) * 10;
+        for (int i = 0; i < powerLV; ++i) {
+            Vec2d pos = position; pos.x += -offset + i * 10;
+            unique_ptr<LinearParticle> bullet = make_unique<LinearParticle>(pos, Vec2d(0, -1), bulletRadius, bulletVelocity);
+            bullets.emplace_back(move(bullet));
         }
+        // int powerLV = min(1, power % 10);
+        // switch (powerLV) {
+        //     case 1: 
+        //         unique_ptr<LinearParticle> bullet = make_unique<LinearParticle>(position, Vec2d(0, -1), bulletRadius, bulletVelocity);
+        //         bullets.emplace_back(move(bullet));
+        //         break;
+                
+        // }
     }
 
     void updateSprite() {
@@ -226,8 +235,5 @@ struct Player {
             }
         }
     }
-
-    void updateBullets() {
-
 	
 };

@@ -2,22 +2,32 @@
 
 #include "player.h"
 
+#include "utils.h"
+
 extern Player player;
+
+struct HitAnimation {
+    Vec2d pos, dir;
+    int frame = 0;
+    HitAnimation(Vec2d pos): pos(pos) {}
+    HitAnimation(Vec2d pos, Vec2d dir): pos(pos), dir(dir) {}
+};
 struct ParticleManager {
     string texturePath;
     Texture texture;
     int delta = 30;
 
-    SDL_Rect deadRect;
+    SDL_Rect deadRect, hitParticles, deadParticles;
 
     vector<unique_ptr<Particle>> particles;
 
-    vector<pair<Vec2d, int>> enemyDeadState;
+    vector<HitAnimation> enemyDeadAnimation, enemyHitParticles, enemyDeadParticles;
 
     void initialize() {
         texture.load("particle"); 
-        deadRect.x = 57, deadRect.y = 25, deadRect.w = 32, deadRect.h = 32;
-
+        deadRect = {25, 25, 32, 32}; 
+        hitParticles = {217, 58, 16, 16};
+        deadParticles = {89, 58, 16, 16};
     }
 
     void push(Vec2d pos, int radius, int velocity) {
@@ -53,46 +63,45 @@ struct ParticleManager {
         }
     }
 
-    void updatePlayerBullets() {
-        vector<unique_ptr<Particle>> newBullets;
-        for (auto& bullet : player.bullets) {
-            // bullet find a enemy to shoot
-            if (!enemyManager.enemies.size()) {
-                auto enemy = *enemyManager.enemies[0];
-                Vec2d dir = player.position - enemy.position;
-                dir = dir * (1.0 / dir.length());
-                bullet->position = bullet->initialPosition + (dir * bullet->elapsedTime);
-                bullet->elapsedTime++;
-
-            } else {
-                bullet->update();
+    void updateHitParticles() {
+        vector<HitAnimation> newEnemyHitParticles;
+        for (auto& a : enemyHitParticles) {
+            a.frame++;
+            a.pos = a.pos + (a.dir * 3);
+            if (a.frame < 16) {
+                newEnemyHitParticles.emplace_back(a);
             }
 
-            if (bullet->inBound() && !bullet->hit) {
-                newBullets.emplace_back(move(bullet));
-            }
         }
-        player.bullets = move(newBullets);
+        enemyHitParticles = newEnemyHitParticles;
     }
 
     void updateDeadAnimation() {
-        vector<pair<Vec2d, int>> newEnemyDeadState;
-        for (auto& p : enemyDeadState) {
-            auto pos = p.first;
-            int frame = p.second;
-
-            frame++;
-            if (frame < 6) {
-                newEnemyDeadState.emplace_back(pos, frame);
+        vector<HitAnimation> newEnemyDeadParticles;
+        for (auto& a : enemyDeadParticles) {
+            a.frame++;
+            a.pos = a.pos + (a.dir * 3);
+            if (a.frame < 16) {
+                newEnemyDeadParticles.emplace_back(a);
             }
 
         }
-        enemyDeadState = newEnemyDeadState;
+        enemyDeadParticles = newEnemyDeadParticles;
+
+        vector<HitAnimation> newEnemyDeadAnimation;
+        for (auto& a : enemyDeadAnimation) {
+            a.frame++;
+            if (a.frame < 8) {
+                newEnemyDeadAnimation.emplace_back(a);
+            }
+
+        }
+        enemyDeadAnimation = newEnemyDeadAnimation;
     }
 
     void update() {
         updateBullets();
-        updatePlayerBullets();
+        updateHitParticles();
         updateDeadAnimation();
 
     }
@@ -103,31 +112,59 @@ struct ParticleManager {
         }
     }
 
+    void renderHitParticles() {
+        for (auto& a : enemyHitParticles) {
+            texture.setAlpha((1.0 - (a.frame / 16.0)) * 255);
+            hitParticles.x = 217 + (a.frame / 4) * 16;
+            texture.render(a.pos.x, a.pos.y, &hitParticles);
+            texture.setAlpha(255);
+        }
+    }
+
     void renderDeadAnimation() {
-        for (auto& p : enemyDeadState) {
-            auto pos = p.first;
-            int frame = p.second;
-            texture.setAlpha(155);
-            texture.render(pos.x, pos.y, &deadRect, deadRect.w + frame * 6, deadRect.h + frame * 6, frame * 32);
+        for (auto& a : enemyDeadAnimation) {
+            texture.setAlpha((1.0 - (a.frame / 8.0)) * 255);
+            texture.render(a.pos.x, a.pos.y, &deadRect, deadRect.w + a.frame * 4, deadRect.h + a.frame * 4, a.frame * 32);
             texture.setAlpha(255);
 
+        }
+
+        for (auto& a : enemyDeadParticles) {
+            texture.setAlpha((1.0 - (a.frame / 16.0)) * 255);
+            deadParticles.x = 89 + (a.frame / 4) * 16;
+            texture.render(a.pos.x, a.pos.y, &deadParticles);
+            texture.setAlpha(255);
         }
     }
 
     void render() {
         renderBullets();
+        renderHitParticles();
         renderDeadAnimation();
     }
 
-    void addBullet(Vec2d pos, Vec2d dir, int radius, int velocity) {
+    void addBullet(Vec2d pos, Vec2d dir, double radius, double velocity) {
         unique_ptr<LinearParticle> particle = make_unique<LinearParticle>(pos, dir, radius, velocity);
         particles.emplace_back(move(particle));
     }
 
 
     void playEnemyDeadAnimation(Vec2d pos) {
-        enemyDeadState.emplace_back(pos, 0);
+        enemyDeadAnimation.emplace_back(pos);
+
+        Vec2d dir = getRandomPoint() - pos;
+        dir = dir.normalized();
+        enemyDeadParticles.emplace_back(pos, dir);
     }
+
+    void playEnemyHit(Vec2d pos) {
+        for (int i = 0; i < 8; ++i) {
+            Vec2d dir = getRandomPoint() - pos;
+            dir = dir.normalized();
+            enemyHitParticles.emplace_back(pos, dir);
+        }
+    }
+
 
     void dropPowerItem(Vec2d pos) {
         unique_ptr<PowerItem> item = make_unique<PowerItem>(pos);

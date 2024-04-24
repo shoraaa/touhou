@@ -16,6 +16,10 @@ struct Vec2d {
         return x >= FIELD_X && x <= FIELD_X + FIELD_WIDTH - 4 && y >= FIELD_Y && y <= FIELD_Y + FIELD_HEIGHT;
     }
 
+    Vec2d normalized() {
+        return (*this) * (1.0 / length());
+    }
+
     double distance(const Vec2d& other) {
         return (x - other.x) * (x - other.x) + (y - other.y) * (y - other.y);
     }
@@ -27,10 +31,17 @@ struct Vec2d {
     Vec2d operator+ (const Vec2d& a) const {
         return Vec2d(x + a.x, y + a.y);
     }
-     Vec2d operator- (const Vec2d& a) const {
+    Vec2d operator- (const Vec2d& a) const {
         return Vec2d(x - a.x, y - a.y);
     }
     Vec2d operator* (double k) const {
         return Vec2d(x * k, y * k);
     }
+    Vec2d operator/ (double k) const {
+        return Vec2d(x / k, y / k);
+    }
 };
+
+Vec2d getRandomPoint() {
+    return Vec2d(random(FIELD_X, FIELD_X2), random(FIELD_Y, FIELD_Y2));
+}
