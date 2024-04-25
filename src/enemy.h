@@ -124,24 +124,34 @@ struct Rumia {
     Vec2d position, direction, initialPosition;
     SE deadSE, hitSE;
     SDL_Rect spriteClip;
-    int spawned = 0;
+    int spawned = 0, dead = 0;
 
-    int movingFrame = 0;
+    int movingFrame = 1e9;
 
-    int currentPattern;
     vector<unique_ptr<Pattern>> patterns;
 
     int elapsedTime = 0;
-    int hp = 1000, skillDelay = 0;
+    int hp = 1000, skillDelay = 120;
     double velocity = 1.0;
 
-    #define SKILL_CD 60 * 6
+    #define SKILL_CD 60 * 3
 
     void initialize() {
         spriteClip = {996, 25, 32, 64};
         hitSE.load("damage00");
 
-        patterns.emplace_back(make_unique<RingPattern>());
+        // patterns.emplace_back(make_unique<RingPattern>());
+        // patterns.emplace_back(make_unique<FanPattern>());
+        // patterns.emplace_back(make_unique<ShootPattern>());
+
+        patterns.emplace_back(make_unique<RumiaPatternA>());
+        patterns.emplace_back(make_unique<RumiaPatternB>());
+        patterns.emplace_back(make_unique<RumiaPatternC>());
+
+
+        for (auto& p : patterns) {
+            p->initialize();
+        }
     }
 
     void spawn() {
@@ -160,7 +170,11 @@ struct Rumia {
     }
 
     void update() {
-        if (hp <= 0) return;
+        if (hp <= 0) {
+            spawned = 0;
+            dead = 1;
+            return;
+        }
 
         for (auto& bullet : player.bullets) {
             if (bullet->collide(position)) {
@@ -175,26 +189,34 @@ struct Rumia {
             }
         }
 
+        // cerr << hp << '\n';
 
         skillDelay--;
         if (skillDelay <= 0) {
             skillDelay = SKILL_CD;
-            currentPattern = random(0, patterns.size() - 1);
-            patterns[currentPattern]->initialize(position);
+
+            vector<int> nextPatternCandidate;
+            for (int i = 0; i < patterns.size(); ++i) if (!patterns[i]->onGoing()) {
+                nextPatternCandidate.emplace_back(i);
+            }
+            if (!nextPatternCandidate.empty()) {
+                int i = random(0, nextPatternCandidate.size() - 1);
+                patterns[nextPatternCandidate[i]]->reset(position);
+            }
 
             Vec2d nextPosition = Vec2d(random(FIELD_X + 16, FIELD_X2 - 16), random(FIELD_Y + 16, FIELD_Y + 200));
             initialPosition = position;
             direction = nextPosition - position;
             movingFrame = 0;
-        } else {
-            patterns[currentPattern]->update(position);
+        }
 
-            if (movingFrame < 45) {
-                position = initialPosition + direction * easeIn(movingFrame / 60.0);
-                movingFrame++;
-            }
+        for (auto& pattern : patterns) {
+            pattern->update(position);
+        }
 
-
+        if (movingFrame < 45) {
+            position = initialPosition + direction * easeIn(movingFrame / 60.0);
+            movingFrame++;
         }
 
 
@@ -295,7 +317,7 @@ struct EnemyManager {
         updateEnemies();
         if (0 && elapsed_frame <= 60 * 30) {
            generateEnemies();
-        } else {
+        } else if (!rumia.dead) {
             if (!rumia.spawned) {
                 rumia.spawn();
             } else {
@@ -309,6 +331,8 @@ struct EnemyManager {
             texture.render(enemy->position.x, enemy->position.y, &enemy->spriteClip);
         }
         if (rumia.spawned) {
+            SDL_Rect hpRect = {FIELD_X + 64, FIELD_Y + 16, (int)((rumia.hp / 1000.0) * (FIELD_WIDTH - (FIELD_X + 64 + 4))), 4};
+            SDL_RenderFillRect(renderer, &hpRect);
             texture.render(rumia.position.x, rumia.position.y, &rumia.spriteClip);
         }
     }

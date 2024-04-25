@@ -33,11 +33,14 @@ public:
 class SE {
 private:
     Mix_Chunk* se = NULL;
+
 public:
-    SE() {}
+    SE() {
+
+    }
     ~SE() {
-        // Mix_FreeChunk(se);
-        // se = NULL;
+        Mix_FreeChunk(se);
+        se = NULL;
     }
     void load(string name) {
         string path = filesystem::current_path().string() + "\\assets\\audio\\se\\" + name + ".wav";
@@ -47,7 +50,7 @@ public:
             exit(1);
         }
     }
-    void play() {
-        Mix_PlayChannel(-1, se, 0);
+    void play(int loop = 0) {
+        Mix_PlayChannel(-1, se, loop);
     }
 };

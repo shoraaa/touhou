@@ -9,6 +9,7 @@ extern int PLAYER_LOST;
 struct Player {
     Texture spriteTexture;
     SE shootSE, deadSE, itemSE;
+    int shootChannel, deadChannel, itemChannel;
     int lives = 3;
     int score = 0;
     int kills = 0;
@@ -57,10 +58,10 @@ struct Player {
     void initialize() {
         spriteTexture.load("reimu");
         position = Vec2d(FIELD_X + FIELD_WIDTH / 2, FIELD_HEIGHT - 32);
-        velocity = Vec2d(5, 5);
+        velocity = Vec2d(3, 3);
 
-        normalVelocity = Vec2d(5, 5);
-        slowVelocity = Vec2d(2.5, 2.5);
+        normalVelocity = Vec2d(3, 3);
+        slowVelocity = Vec2d(1.5, 1.5);
 
         shootSE.load("plst00");
         deadSE.load("pldead00");
@@ -181,6 +182,7 @@ struct Player {
             PLAYER_LOST = 1;
             return 1;
         } 
+
         lives--;
         invicibleFrame = 120;
         return 1;
@@ -233,15 +235,8 @@ struct Player {
 
     void shoot() {
         shootSE.play();
-        // int powerLV = max(1, min(7, power / 3));
-        // int offset = (powerLV / 2) * 10;
-        // for (int i = 0; i < powerLV; ++i) {
-        //     Vec2d pos = position; pos.x += -offset + i * 10;
-        //     unique_ptr<PlayerBullet> bullet = make_unique<PlayerBullet>(pos, Vec2d(0, -1), bulletRadius, bulletVelocity);
-        //     bullets.emplace_back(move(bullet));
-        // }
 
-        int powerLV = 4;
+        int powerLV = 5;// max(1, min(4, power / 3));
 
         int currentTick = SDL_GetTicks();
         if (powerLV == 1) {
@@ -252,13 +247,10 @@ struct Player {
 
                 lastBullet = currentTick;
             }
-        } else if (powerLV == 2) {
-
+        }  else if (powerLV == 2) {
             if (currentTick - lastBullet > BULLET_DELAY) {
-                unique_ptr<PlayerBullet> bulletLeft = make_unique<PlayerBullet>(Vec2d(position.x - 8, position.y - 4), Vec2d(0, -1), bulletRadius, bulletVelocity);
-                unique_ptr<PlayerBullet> bulletRight = make_unique<PlayerBullet>(Vec2d(position.x + 8, position.y - 4), Vec2d(0, -1), bulletRadius, bulletVelocity);
-                bullets.emplace_back(move(bulletLeft));
-                bullets.emplace_back(move(bulletRight));
+                unique_ptr<PlayerBullet> bullet = make_unique<PlayerBullet>(position, Vec2d(0, -1), bulletRadius, bulletVelocity);
+                bullets.emplace_back(move(bullet));
 
                 lastBullet = currentTick;
             }
@@ -271,7 +263,27 @@ struct Player {
 
                 lastChaseBullet = currentTick;
             }
-        } else if (powerLV == 3) {
+
+        }  else if (powerLV == 3) {
+
+            if (currentTick - lastBullet > BULLET_DELAY) {
+                unique_ptr<PlayerBullet> bulletLeft = make_unique<PlayerBullet>(Vec2d(position.x - 8, position.y - 4), Vec2d(0, -1), bulletRadius, bulletVelocity);
+                unique_ptr<PlayerBullet> bulletRight = make_unique<PlayerBullet>(Vec2d(position.x + 8, position.y - 4), Vec2d(0, -1), bulletRadius, bulletVelocity);
+                bullets.emplace_back(move(bulletLeft));
+                bullets.emplace_back(move(bulletRight));
+
+                lastBullet = currentTick;
+            }
+
+            if (currentTick - lastChaseBullet > CHASE_BULLET_DELAY) {
+                unique_ptr<PlayerBullet> chaseBulletLeft = make_unique<PlayerBullet>(Vec2d(position.x - 16, position.y), Vec2d(0, -1), chaseBulletRadius, chaseBulletVelocity + 2);
+                unique_ptr<PlayerBullet> chaseBulletRight = make_unique<PlayerBullet>(Vec2d(position.x + 16, position.y), Vec2d(0, -1), chaseBulletRadius, chaseBulletVelocity + 2);
+                chaseBullets.emplace_back(move(chaseBulletLeft));
+                chaseBullets.emplace_back(move(chaseBulletRight));
+
+                lastChaseBullet = currentTick;
+            }
+        } else if (powerLV == 4) {
 
             if (currentTick - lastBullet > BULLET_DELAY) {
                 Vec2d dir = Vec2d(0, -1);
@@ -316,8 +328,8 @@ struct Player {
 
 
             if (currentTick - lastChaseBullet > CHASE_BULLET_DELAY / 3) {
-                unique_ptr<PlayerBullet> chaseBulletLeft = make_unique<PlayerBullet>(Vec2d(position.x - 16, position.y), Vec2d(0, -1), chaseBulletRadius, chaseBulletVelocity * 2);
-                unique_ptr<PlayerBullet> chaseBulletRight = make_unique<PlayerBullet>(Vec2d(position.x + 16, position.y), Vec2d(0, -1), chaseBulletRadius, chaseBulletVelocity * 2);
+                unique_ptr<PlayerBullet> chaseBulletLeft = make_unique<PlayerBullet>(Vec2d(position.x - 16, position.y), Vec2d(0, -1), chaseBulletRadius, chaseBulletVelocity * 3);
+                unique_ptr<PlayerBullet> chaseBulletRight = make_unique<PlayerBullet>(Vec2d(position.x + 16, position.y), Vec2d(0, -1), chaseBulletRadius, chaseBulletVelocity * 3);
                 chaseBullets.emplace_back(move(chaseBulletLeft));
                 chaseBullets.emplace_back(move(chaseBulletRight));
 
@@ -326,13 +338,6 @@ struct Player {
 
         }
 
-        // switch (powerLV) {
-        //     case 1: 
-        //         unique_ptr<PlayerBullet> bullet = make_unique<PlayerBullet>(position, Vec2d(0, -1), bulletRadius, bulletVelocity);
-        //         bullets.emplace_back(move(bullet));
-        //         break;
-                
-        // }
     }
 
     void updateSprite() {

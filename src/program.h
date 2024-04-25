@@ -1,6 +1,7 @@
 #pragma once
 
 #include "scene.h"
+#include "const.h"
 
 
 // global variables
@@ -9,14 +10,19 @@ SDL_Renderer* renderer = NULL;
 int PLAYER_LOST = 0;
 
 int elapsed_frame = 0;
+
 Player player;
 ParticleManager particleManager;
 EnemyManager enemyManager;
+int current_channel = 0;
+#define TOTAL_CHANNEL 64
 
 struct Program {
     Scene_MainMenu menu;
     Scene_Gameplay game;
     int currentScene = 0;
+    double fps;
+    Texture font;
 
 	bool initialize() {
         cout << "Initializing..\n";
@@ -44,6 +50,7 @@ struct Program {
         }
         Mix_VolumeMusic(16);
         Mix_MasterVolume(16);
+        Mix_AllocateChannels(TOTAL_CHANNEL);
 
         renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
         if(renderer == NULL) {
@@ -55,6 +62,7 @@ struct Program {
 
         menu.initialize();
         game.initialize();
+        font.load("font");
 
 		return 1;
 	}
@@ -88,20 +96,73 @@ struct Program {
         } else {
             game.render();
         }
+        renderFPS();
         SDL_RenderPresent(renderer);
+    }
+
+    void renderFPS() {
+        SDL_Rect clip = {25, 73, 16, 16};
+        SDL_Rect dstRect = {8 * 58, WINDOW_HEIGHT - 16, 16, 16};
+
+        clip.x = 25 + 16 * (int(fps / 10) % 10);
+        font.render(&clip, &dstRect);
+        dstRect.x += 16;
+
+        clip.x = 25 + 16 * (int(fps) % 10);
+        font.render(&clip, &dstRect);
+        dstRect.x += 16;
+
+        // dot :)
+        clip.x = 25 + 16 * 14, clip.y -= 16;
+        font.render(&clip, &dstRect);
+        dstRect.x += 16, clip.y += 16;
+
+        clip = {25, 73, 16, 16};
+        clip.x = 25 + 16 * (int(fps * 10) % 10);
+        font.render(&clip, &dstRect);
+        dstRect.x += 16;
+
+        clip.x = 25 + 16 * (int(fps * 100) % 10);
+        font.render(&clip, &dstRect);
+        dstRect.x += 16;
+        
+        dstRect.x += 16;
+
+        // FPS
+        clip.y += 16 * 3;
+
+        clip.x = 25 + 16 * 6;
+        font.render(&clip, &dstRect);
+        dstRect.x += 16;
+
+        clip.x = 25; clip.y += 16;
+        font.render(&clip, &dstRect);
+        dstRect.x += 16;
+
+        clip.x = 25 + 16 * 3; 
+        font.render(&clip, &dstRect);
+        dstRect.x += 16; 
+
     }
 
 	void loop() {
 		SDL_Event e; 
 		bool quit = false; 
 
-        unsigned int a, b = 0;
+        unsigned int delta, currentTick = 0;
+
+        int desiredDelta = 1000.0 / 60;
+        int fpsDelay = 1000.0 / 20;
         
 		while (!quit) { 
 
-            a = SDL_GetTicks();
-            if (a - b <= 1000.0 / 60) continue;
-            b = a;
+            delta = SDL_GetTicks() - currentTick;
+            if (delta <= fpsDelay)
+                fps = 1000.0 / (desiredDelta - delta);
+            if (delta <= desiredDelta) {
+                SDL_Delay(desiredDelta - delta);
+            }
+            currentTick = SDL_GetTicks();
             
             while (SDL_PollEvent(&e)) { 
                 if (e.type == SDL_QUIT) quit = true;
@@ -111,7 +172,6 @@ struct Program {
             }	
 
             update();
-            
             render();
 		}
 

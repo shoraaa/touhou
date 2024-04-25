@@ -8,11 +8,11 @@ class Particle {
     public:
     Vec2d initialPosition, position;
     int elapsedTime = 0, totalTime = 0;
-    int hit = 0, radius = 5, type = -1;
-    SDL_Rect srcRect;
+    int hit = 0, radius = 5, type = -1, angle = 0;
+    SDL_Rect bulletClip;
 
     Particle() = default;
-    Particle(Vec2d pos, int radius, int type): initialPosition(pos), position(pos), radius(radius), type(type) {}
+    Particle(Vec2d pos, int radius, int type, SDL_Rect bulletClip): initialPosition(pos), position(pos), radius(radius), type(type), bulletClip(bulletClip) {}
 
     bool inBound() {
         return position.inPlayField();
@@ -34,25 +34,18 @@ class EnemyBullet : public Particle {
     // vector linear
     public:
     Vec2d direction;
-    EnemyBullet(Vec2d pos, Vec2d dir, double radius, double vel): Particle(pos, radius, 0), direction(dir * vel) {
-        srcRect.x = 322, srcRect.y = 57, srcRect.w = 16, srcRect.h = 16;
-
-        totalTime = std::numeric_limits<int>::max();
-
-        if (direction.x != 0.0) {
-            int timeToReachXEdge = (direction.x > 0.0) ? (FIELD_X2 - pos.x) / direction.x : (FIELD_X - pos.x) / direction.x;
-            totalTime = min(totalTime, timeToReachXEdge);
-        }
-
-        if (direction.y != 0.0) {
-            int timeToReachYEdge = (direction.y > 0.0) ? (FIELD_Y2 - pos.y) / direction.y : (FIELD_Y - pos.y) / direction.y;
-            totalTime = min(totalTime, timeToReachYEdge);
-        }
+    int mode;
+    EnemyBullet(Vec2d pos, Vec2d dir, double radius, double vel, SDL_Rect bulletClip, int angle, int mode = 2): Particle(pos, radius, 0, bulletClip), direction(dir * vel) {
+        this->angle = angle;
+        this->mode = mode;
+        totalTime = 120;
 
     }
     void update() override {
-        position = position + direction * easeIn((double)elapsedTime / totalTime, 1.25);
-        position = position + direction;
+        double t = min(1.0, (double)elapsedTime / totalTime);
+        if (mode == 1) t = easeIn(t, 2);
+        else if (mode == 2) t = easeOut(t, 2);
+        position = position + direction * t;
         elapsedTime++;
     }
 };
@@ -61,9 +54,7 @@ class PlayerBullet : public Particle {
     // vector linear
     public:
     Vec2d direction;
-    PlayerBullet(Vec2d pos, Vec2d dir, double radius, double vel): Particle(pos, radius, 0), direction(dir * vel) {
-        srcRect.x = 322, srcRect.y = 57, srcRect.w = 16, srcRect.h = 16;
-
+    PlayerBullet(Vec2d pos, Vec2d dir, double radius, double vel, SDL_Rect bulletClip = SDL_Rect()): Particle(pos, radius, 0, bulletClip), direction(dir * vel) {
         totalTime = std::numeric_limits<int>::max();
 
         if (direction.x != 0.0) {
@@ -88,8 +79,8 @@ class PlayerBullet : public Particle {
 #define ITEM_RADIUS 16
 class ScoreItem : public Particle {
 public:
-    ScoreItem(Vec2d pos): Particle(pos, ITEM_RADIUS, 1) {
-        srcRect.x = 322, srcRect.y = 25, srcRect.w = 16, srcRect.h = 16;
+    ScoreItem(Vec2d pos, SDL_Rect bulletClip): Particle(pos, ITEM_RADIUS, 1, bulletClip) {
+        bulletClip.x = 322, bulletClip.y = 25, bulletClip.w = 16, bulletClip.h = 16;
     }
     void update() override {
         position.y = initialPosition.y - (ITEM_VELOCITY * elapsedTime / 60.0) + (GRAVITY * elapsedTime * elapsedTime) / (2.0 * 60.0);
@@ -99,8 +90,8 @@ public:
 
 class PowerItem : public Particle {
 public:
-    PowerItem(Vec2d pos): Particle(pos, ITEM_RADIUS, 2) {
-        srcRect.x = 306, srcRect.y = 25, srcRect.w = 16, srcRect.h = 16;
+    PowerItem(Vec2d pos, SDL_Rect bulletClip): Particle(pos, ITEM_RADIUS, 2, bulletClip) {
+        bulletClip.x = 306, bulletClip.y = 25, bulletClip.w = 16, bulletClip.h = 16;
     }
     void update() override {
         position.y = initialPosition.y - (ITEM_VELOCITY * elapsedTime / 60.0) + (GRAVITY * elapsedTime * elapsedTime) / (2.0 * 60.0);

@@ -1,40 +1,48 @@
 #pragma once
 
 #include "player.h"
-
 #include "utils.h"
+#include "animation.h"
 
 extern Player player;
 
-struct HitAnimation {
-    Vec2d pos, dir;
-    int frame = 0;
-    HitAnimation() = default;
-    HitAnimation(Vec2d pos): pos(pos) {}
-    HitAnimation(Vec2d pos, Vec2d dir): pos(pos), dir(dir) {}
-};
 struct ParticleManager {
     string texturePath;
     Texture texture;
     int delta = 30;
+    SE damage;
 
-    SDL_Rect deadRect, hitParticles, deadParticles;
+    SDL_Rect deadRect, hitParticles, deadParticles, bulletClip[6][16];
 
-    vector<unique_ptr<Particle>> particles;
+    vector<shared_ptr<Particle>> particles, tmp;
 
-    vector<HitAnimation> enemyDeadAnimation, enemyHitParticles, enemyDeadParticles;
-    HitAnimation playerDeadAnimation;
+    vector<shared_ptr<Animation>> animations;
 
     void initialize() {
         texture.load("particle"); 
-        deadRect = {25, 25, 32, 32}; 
-        hitParticles = {217, 58, 16, 16};
-        deadParticles = {89, 58, 16, 16};
-        playerDeadAnimation.frame = 120;
+        damage.load("damage00");
+
+        for (int i = 0, cx = 306, y = 57; i < 5; ++i) {
+            int x = cx;
+            for (int j = 0; j < 16; ++j) {
+                bulletClip[i][j] = {x, y, 16, 16};
+                x += 16;
+            }
+            y += 16;
+        }
+
+        for (int i = 0, x = 434, y = 233; i < 8; ++i) {
+            bulletClip[5][i] = {x, y, 8, 8};
+            if (i == 3) {
+                x = 434, y = 233 + 8;
+            } else {
+                x += 8;
+            }
+        }
     }
 
     void updateBullets() {
-        vector<unique_ptr<Particle>> newParticles;
+        vector<shared_ptr<Particle>> newParticles;
         for (auto& particle : particles) {
             particle->update();
             if (particle->inBound() && !particle->hit) {
@@ -49,6 +57,7 @@ struct ParticleManager {
                 if (particle->type == 0) { // bullet
                     if (player.gotHit()) {
                         playPlayerDeadAnimation(player.position);
+                        clear();
                     }
                 } else if (particle->type == 1) { // score
                     player.increaseScore(10);
@@ -59,120 +68,79 @@ struct ParticleManager {
         }
     }
 
-    void updateHitParticles() {
-        vector<HitAnimation> newEnemyHitParticles;
-        for (auto& a : enemyHitParticles) {
-            a.frame++;
-            a.pos = a.pos + (a.dir * 8);
-            if (a.frame < 16) {
-                newEnemyHitParticles.emplace_back(a);
+    void updateAnimation() {
+        vector<shared_ptr<Animation>> newAnimations;
+        for (auto& animation : animations) {
+            if (animation->update()) {
+                newAnimations.emplace_back(move(animation));
             }
-
         }
-        enemyHitParticles = newEnemyHitParticles;
-    }
-
-    void updateDeadAnimation() {
-        vector<HitAnimation> newEnemyDeadParticles;
-        for (auto& a : enemyDeadParticles) {
-            a.frame++;
-            a.pos = a.pos + (a.dir * 8);
-            if (a.frame < 16) {
-                newEnemyDeadParticles.emplace_back(a);
-            }
-
-        }
-        enemyDeadParticles = newEnemyDeadParticles;
-
-        vector<HitAnimation> newEnemyDeadAnimation;
-        for (auto& a : enemyDeadAnimation) {
-            a.frame++;
-            if (a.frame < 8) {
-                newEnemyDeadAnimation.emplace_back(a);
-            }
-
-        }
-        enemyDeadAnimation = newEnemyDeadAnimation;
-
-        if (playerDeadAnimation.frame < 60) {
-            playerDeadAnimation.frame++;
-        }
+        animations = move(newAnimations);
     }
 
     void update() {
         updateBullets();
-        updateHitParticles();
-        updateDeadAnimation();
+        updateAnimation();
 
     }
 
     void renderBullets() {
         for (auto& particle : particles) {
-            texture.render(particle->position.x, particle->position.y, &particle->srcRect);
+            render(particle);
+        }
+        for (auto& particle : tmp) {
+            render(particle);
         }
     }
 
-    void renderHitParticles() {
-        for (auto& a : enemyHitParticles) {
-            texture.setAlpha((1.0 - (a.frame / 16.0)) * 155);
-            hitParticles.x = 217 + (a.frame / 4) * 16;
-            texture.render(a.pos.x, a.pos.y, &hitParticles);
-            texture.setAlpha(255);
+    void renderAnimations() {
+        for (auto& animation : animations) {
+            animation->render(texture);
         }
     }
 
-    void renderDeadAnimation() {
-        for (auto& a : enemyDeadAnimation) {
-            texture.setAlpha((1.0 - (a.frame / 8.0)) * 255);
-            texture.render(a.pos.x, a.pos.y, &deadRect, deadRect.w + a.frame * 4, deadRect.h + a.frame * 4, a.frame * 32);
-            texture.setAlpha(255);
-
-        }
-
-        for (auto& a : enemyDeadParticles) {
-            texture.setAlpha((1.0 - (a.frame / 16.0)) * 155);
-            deadParticles.x = 89 + (a.frame / 4) * 16;
-            texture.render(a.pos.x, a.pos.y, &deadParticles);
-            texture.setAlpha(255);
-        }
-
-        if (playerDeadAnimation.frame < 60) {
-            auto a = playerDeadAnimation;
-            texture.setAlpha((1.0 - (a.frame / 8.0)) * 255);
-            texture.render(a.pos.x, a.pos.y, &deadRect, deadRect.w + a.frame * 32, deadRect.h + a.frame * 32);
-            texture.setAlpha(255);
-        }
+    void render(shared_ptr<Particle> &particle) {
+        texture.render(particle->position.x, particle->position.y, &particle->bulletClip, 0, 0, particle->angle);
     }
 
     void render() {
         renderBullets();
-        renderHitParticles();
-        renderDeadAnimation();
+        renderAnimations();
     }
 
-    void addBullet(Vec2d pos, Vec2d dir, double radius, double velocity) {
-        unique_ptr<EnemyBullet> particle = make_unique<EnemyBullet>(pos, dir, radius, velocity);
+    void addBullet(Vec2d pos, Vec2d dir, double radius, double velocity, int row = 0, int col = 2, int angle = 0, int mode = 0) {
+        shared_ptr<EnemyBullet> particle = make_shared<EnemyBullet>(pos, dir, radius, velocity, bulletClip[row][col], angle, mode);
         particles.emplace_back(move(particle));
     }
 
+    shared_ptr<EnemyBullet> getBullet(Vec2d pos, Vec2d dir, double radius, double velocity, int row = 0, int col = 2, int angle = 0) {
+        return make_shared<EnemyBullet>(pos, dir, radius, velocity, bulletClip[row][col], angle);
+    }
+
+    void clear() {
+        vector<shared_ptr<Particle>> newParticles;
+        for (auto& particle : particles) {
+            SDL_Rect clip = {322, 25, 16, 16};
+            shared_ptr<ScoreItem> item = make_shared<ScoreItem>(particle->position, clip);
+            newParticles.emplace_back(move(item));
+        }
+        particles = move(newParticles);
+    }
 
     void playEnemyDeadAnimation(Vec2d pos) {
-        enemyDeadAnimation.emplace_back(pos);
-
-        Vec2d dir = getRandomPoint() - pos;
-        dir = dir.normalized();
-        enemyDeadParticles.emplace_back(pos, dir);
+        animations.emplace_back(make_shared<EnemyDeadAnimation>(pos));
     }
 
     void playPlayerDeadAnimation(Vec2d pos) {
-        playerDeadAnimation = HitAnimation(pos);
+        animations.emplace_back(make_shared<PlayerDeadAnimation>(pos));
     }
 
     void playEnemyHitAnimation(Vec2d pos) {
+        damage.play();
         for (int i = 0; i < 8; ++i) {
             Vec2d dir = getRandomPoint() - pos;
             dir = dir.normalized();
-            enemyHitParticles.emplace_back(pos, dir);
+            animations.emplace_back(make_shared<HitAnimation>(pos, dir));
         }
     }
 
@@ -181,18 +149,20 @@ struct ParticleManager {
             Vec2d dir = getRandomPoint() - pos;
             dir = dir.normalized();
             dir.x = -dir.x; dir.y = -dir.y;
-            enemyDeadParticles.emplace_back(pos, dir);
+            animations.emplace_back(make_shared<HitAnimation>(pos, dir));
         }
     }
 
 
     void dropPowerItem(Vec2d pos) {
-        unique_ptr<PowerItem> item = make_unique<PowerItem>(pos);
+        SDL_Rect clip = {306, 25, 16, 16};
+        shared_ptr<PowerItem> item = make_shared<PowerItem>(pos, clip);
         particles.emplace_back(move(item));
     }
 
     void dropScoreItem(Vec2d pos) {
-        unique_ptr<ScoreItem> item = make_unique<ScoreItem>(pos);
+        SDL_Rect clip = {322, 25, 16, 16};
+        shared_ptr<ScoreItem> item = make_shared<ScoreItem>(pos, clip);
         particles.emplace_back(move(item));
     }
 

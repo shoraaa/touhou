@@ -5,8 +5,12 @@
 
 mt19937 rng(chrono::steady_clock::now().time_since_epoch().count());
 int random(int l, int r) {
-    return rng() % (r - l + 1) + l;
+    return uniform_int_distribution<int>(l, r)(rng);
 }
+double random_d(double l, double r) {
+    return uniform_real_distribution<double>(l, r)(rng);
+}
+
 
 struct Vec2d {
     double x, y;
