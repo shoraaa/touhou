@@ -1,4 +1,4 @@
-# Touhou 6 - Embodiment of Scarlet Devil
+# Touhou 6 - Embodiment of Scarlet Devil (C++/SDL2)
 - Video: https://youtu.be/O5nHlf4RpH4
 
 # Introduction
@@ -126,6 +126,8 @@ Losing lives will decrease player score, each decrease 10000 score. Losing the g
 - scene.h: Classes of different scene: main menu, gameplay, ..
 - program.h: Class of the program itself.
 
+All code was hand-written with the exception of C++ STL, SDL2, SDL2_image and SDL_mixer library.
+Asset was ripped from Touhou 6 by Zun, taken from https://www.spriters-resource.com/pc_computer/touhoukoumakyoutheembodimentofscarletdevil/ 
 
 
 
