@@ -4,18 +4,23 @@
 #include "texture.h"
 #include "particle.h"
 #include "audio.h"
+#include "sprite.h"
 
 extern int PLAYER_LOST;
 struct Player {
     Texture spriteTexture;
-    SE shootSE, deadSE, itemSE;
+    SE shootSE, deadSE, itemSE, grazeSE;
     int shootChannel, deadChannel, itemChannel;
     int lives = 3;
-    int score = 0;
+    int score = 0, _score = 0;
     int kills = 0;
     int power = 1;
+    int graze = 0, grazeDelay = 0;
+    int chi = 0;
 
     SDL_Rect spriteClip[2][7], bulletClip, chaseBulletClip, taoClip;
+
+    unique_ptr<Sprite> tao[2], deltaTao;
 
     int lastBullet = 0;
     int bulletRadius = 16, bulletVelocity = 12;
@@ -32,6 +37,7 @@ struct Player {
     int sprite_col = 0;
     int sprite_delta = DELTA_DELAY;
     int idle = 0, movingRight = 0, movingLeft = 0;
+    int tick = 0;
 
 	const double DELTA_X = 5;
 	const double DELTA_Y = 5;
@@ -60,12 +66,13 @@ struct Player {
         position = Vec2d(FIELD_X + FIELD_WIDTH / 2, FIELD_HEIGHT - 32);
         velocity = Vec2d(3, 3);
 
-        normalVelocity = Vec2d(3, 3);
-        slowVelocity = Vec2d(1.5, 1.5);
+        normalVelocity = Vec2d(4, 4);
+        slowVelocity = Vec2d(2, 2);
 
         shootSE.load("plst00");
         deadSE.load("pldead00");
         itemSE.load("item00");
+        grazeSE.load("graze");
 
         // source rectangle
         for (int i = 0, y = 25; i < 2; ++i) {
@@ -79,13 +86,19 @@ struct Player {
 
         bulletClip = {996, 25, BULLET_WIDTH, BULLET_HEIGHT};
         chaseBulletClip = {996 + BULLET_WIDTH, 25, BULLET_WIDTH, BULLET_HEIGHT};
-        taoClip = {996, 25 + BULLET_HEIGHT, BULLET_WIDTH, BULLET_HEIGHT};
+
+        for (int i = 0; i < 2; ++i)
+            tao[i] = make_unique<Sprite>("reimu", SDL_Rect{996, 25 + BULLET_HEIGHT, BULLET_WIDTH, BULLET_HEIGHT});
+        tao[0]->setPosition(Vec2d(position.x - 24, position.y), 15, 1);
+        tao[1]->setPosition(Vec2d(position.x + 24, position.y), 15, 1);
+
+        deltaTao = make_unique<Sprite>("reimu", SDL_Rect{996, 25 + BULLET_HEIGHT, BULLET_WIDTH, BULLET_HEIGHT});
+        deltaTao->position = Vec2d(16, 0);
 
     }
 
     void render() {
         if (PLAYER_LOST) return;
-        int tick = SDL_GetTicks();
 
         // player
         if (invicibleFrame % 2 == 0) {
@@ -93,8 +106,17 @@ struct Player {
         } 
 
         // tao
-        spriteTexture.render(position.x - 24, position.y, &taoClip, 16, 16, (tick / 4) % 360);
-        spriteTexture.render(position.x + 24, position.y, &taoClip, 16, 16, (tick / 4) % 360);
+
+        tao[0]->position = Vec2d(position.x - deltaTao->position.x, position.y + deltaTao->position.y);
+        tao[1]->position = Vec2d(position.x + deltaTao->position.x, position.y + deltaTao->position.y);
+        tao[0]->angle = tao[1]->angle = (tick * 4) % 360;
+
+        tao[0]->render(); tao[1]->render();
+
+
+
+        // spriteTexture.render(position.x - 24, position.y, &taoClip, 16, 16, (tick * 4) % 360);
+        // spriteTexture.render(position.x + 24, position.y, &taoClip, 16, 16, (tick * 4) % 360);
 
 
         // normal bullet
@@ -138,8 +160,15 @@ struct Player {
 
     }
 
+    void clearInput() {
+        for (int i = 0; i < 7; ++i) {
+            pressed[i] = 0;
+        }
+    }
+
 	void update() {
         if (PLAYER_LOST) return;
+        tick++;
 
         if (invicibleFrame) invicibleFrame--;
 
@@ -150,8 +179,14 @@ struct Player {
         else if (pressed[KEY_RIGHT]) moveRight();
         else if (!idle) startIdle();
 
-        if (pressed[KEY_SHIFT]) velocity = slowVelocity;
-        else velocity = normalVelocity; 
+        if (pressed[KEY_SHIFT] && velocity.x != slowVelocity.x) {
+            deltaTao->setPosition(Vec2d(12, -12), 30, 1);
+            velocity = slowVelocity;
+        } else if (!pressed[KEY_SHIFT] && velocity.x != normalVelocity.x) { 
+            deltaTao->setPosition(Vec2d(24, 0), 30, 1);
+            velocity = normalVelocity; 
+        }
+        deltaTao->update();
 
         // shoot
         if (pressed[KEY_SHOOT]) {
@@ -159,12 +194,26 @@ struct Player {
         }
 
         updateSprite();
-        // updateBullets();
+        
+
+        if (_score < score) {
+            _score += 10;
+        }
+
+        if (chi == 100) {
+            chi = 0;
+            lives++;
+        }
 	}
 
-    void increaseScore(int value) {
-        score += value;
+    void increaseChi(int value) {
+        chi += value;
         itemSE.play();
+
+        if (chi >= 100) {
+            chi = 0;
+            lives++;
+        }
     }
 
     void increasePower(int value) {
@@ -236,7 +285,11 @@ struct Player {
     void shoot() {
         shootSE.play();
 
-        int powerLV = 5;// max(1, min(4, power / 3));
+        int powerLV = 1;
+        if (power >= 10) powerLV = 2;
+        if (power >= 20) powerLV = 3;
+        if (power >= 35) powerLV = 4;
+        if (power >= 60) powerLV = 5;
 
         int currentTick = SDL_GetTicks();
         if (powerLV == 1) {
@@ -255,9 +308,9 @@ struct Player {
                 lastBullet = currentTick;
             }
 
-            if (currentTick - lastChaseBullet > CHASE_BULLET_DELAY) {
-                unique_ptr<PlayerBullet> chaseBulletLeft = make_unique<PlayerBullet>(Vec2d(position.x - 16, position.y), Vec2d(0, -1), chaseBulletRadius, chaseBulletVelocity);
-                unique_ptr<PlayerBullet> chaseBulletRight = make_unique<PlayerBullet>(Vec2d(position.x + 16, position.y), Vec2d(0, -1), chaseBulletRadius, chaseBulletVelocity);
+            if (currentTick - lastChaseBullet > CHASE_BULLET_DELAY * 2) {
+                unique_ptr<PlayerBullet> chaseBulletLeft = make_unique<PlayerBullet>(Vec2d(position.x - 16, position.y), Vec2d(0, -1), chaseBulletRadius, chaseBulletVelocity / 2);
+                unique_ptr<PlayerBullet> chaseBulletRight = make_unique<PlayerBullet>(Vec2d(position.x + 16, position.y), Vec2d(0, -1), chaseBulletRadius, chaseBulletVelocity / 2);
                 chaseBullets.emplace_back(move(chaseBulletLeft));
                 chaseBullets.emplace_back(move(chaseBulletRight));
 
@@ -350,6 +403,25 @@ struct Player {
             } else {
                 if (sprite_col == 7) sprite_col = 2;
             }
+        }
+    }
+
+    void gotHitOther() {
+        score += 10;
+    }
+
+    void gotKill() {
+        kills++;
+        score += 100;
+    }
+
+    void gotGraze() {
+        grazeDelay--;
+        if (grazeDelay <= 0) {
+            graze++;
+            grazeDelay = 30;
+            score += 1000;
+            grazeSE.play();
         }
     }
 	

@@ -23,6 +23,10 @@ class Texture {
             SDL_SetTextureAlphaMod(texture, alpha);
         }
 
+        void setBlendMode(SDL_BlendMode blendMode) {
+            SDL_SetTextureBlendMode(texture, blendMode);
+        }
+
 		bool load(string name) {
             free();
             const string path = filesystem::current_path().string() + "\\assets\\picture\\" + name + ".png";

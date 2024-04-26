@@ -61,3 +61,16 @@ double easeOut(double t, double p = 2.0) {
 double easeInOut(double t) {
     return t * t - (3 - 2 * t);
 }
+
+double animate(int type, double t) {
+    type = 1;
+    if (type == 0) {
+        return t;
+    } else if (type == 1) {
+        return easeIn(t);
+    } else if (type == 2) {
+        return easeOut(t);
+    } else {
+        return easeInOut(t);
+    }
+}

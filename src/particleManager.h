@@ -5,6 +5,7 @@
 #include "animation.h"
 
 extern Player player;
+extern double scrollingSpeed;
 
 struct ParticleManager {
     string texturePath;
@@ -41,11 +42,18 @@ struct ParticleManager {
         }
     }
 
+    void hitPlayer() {
+        if (player.gotHit()) {
+            playPlayerDeadAnimation(player.position);
+            clear();
+        }
+    }
+
     void updateBullets() {
         vector<shared_ptr<Particle>> newParticles;
         for (auto& particle : particles) {
             particle->update();
-            if (particle->inBound() && !particle->hit) {
+            if (!particle->shouldDelete()) {
                 newParticles.emplace_back(move(particle));
             }
         }
@@ -55,15 +63,15 @@ struct ParticleManager {
             if (particle->collide(player.position)) {
                 particle->hit = 1;
                 if (particle->type == 0) { // bullet
-                    if (player.gotHit()) {
-                        playPlayerDeadAnimation(player.position);
-                        clear();
-                    }
+                    hitPlayer();
                 } else if (particle->type == 1) { // score
-                    player.increaseScore(10);
+                    player.increaseChi(1);
                 } else if (particle->type == 2) { // power
                     player.increasePower(1);
                 }
+            } else if (particle->position.distance(player.position) <= 25 * 25) {
+                player.gotGraze();
+                playPlayerGrazeAnimation(player.position);
             }
         }
     }
@@ -72,7 +80,7 @@ struct ParticleManager {
         vector<shared_ptr<Animation>> newAnimations;
         for (auto& animation : animations) {
             if (animation->update()) {
-                newAnimations.emplace_back(move(animation));
+                newAnimations.emplace_back(animation);
             }
         }
         animations = move(newAnimations);
@@ -108,62 +116,58 @@ struct ParticleManager {
         renderAnimations();
     }
 
-    void addBullet(Vec2d pos, Vec2d dir, double radius, double velocity, int row = 0, int col = 2, int angle = 0, int mode = 0) {
+    shared_ptr<EnemyBullet> addBullet(Vec2d pos, Vec2d dir, double radius, double velocity, int row = 0, int col = 2, int angle = 0, int mode = 0) {
         shared_ptr<EnemyBullet> particle = make_shared<EnemyBullet>(pos, dir, radius, velocity, bulletClip[row][col], angle, mode);
-        particles.emplace_back(move(particle));
+        particles.emplace_back(particle);
+        return particle;
     }
 
-    shared_ptr<EnemyBullet> getBullet(Vec2d pos, Vec2d dir, double radius, double velocity, int row = 0, int col = 2, int angle = 0) {
-        return make_shared<EnemyBullet>(pos, dir, radius, velocity, bulletClip[row][col], angle);
-    }
+
 
     void clear() {
-        vector<shared_ptr<Particle>> newParticles;
         for (auto& particle : particles) {
-            SDL_Rect clip = {322, 25, 16, 16};
-            shared_ptr<ScoreItem> item = make_shared<ScoreItem>(particle->position, clip);
-            newParticles.emplace_back(move(item));
+            animations.emplace_back(make_shared<EnemyDeadAnimation>(particle->position));
         }
-        particles = move(newParticles);
+        particles.clear();
     }
 
-    void playEnemyDeadAnimation(Vec2d pos) {
-        animations.emplace_back(make_shared<EnemyDeadAnimation>(pos));
+    void playEnemyDeadAnimation(Vec2d pos, int type = 0) {
+        animations.emplace_back(make_shared<EnemyDeadAnimation>(pos, type));
     }
 
     void playPlayerDeadAnimation(Vec2d pos) {
         animations.emplace_back(make_shared<PlayerDeadAnimation>(pos));
     }
 
+    void playPlayerGrazeAnimation(Vec2d pos) {
+        Vec2d dir = Vec2d(0, 1);
+        double a = random(1, 360);
+        double x = dir.length() * cos(a);
+        double y = dir.length() * sin(a);
+        animations.emplace_back(make_shared<GrazeAnimation>(pos, Vec2d(x, y)));
+    }
+
     void playEnemyHitAnimation(Vec2d pos) {
-        damage.play();
-        for (int i = 0; i < 8; ++i) {
-            Vec2d dir = getRandomPoint() - pos;
-            dir = dir.normalized();
-            animations.emplace_back(make_shared<HitAnimation>(pos, dir));
+        for (int i = 0; i < 4; ++i) {
+            Vec2d dir = Vec2d(0, 1);
+            double a = random(1, 360);
+            double x = dir.length() * cos(a);
+            double y = dir.length() * sin(a);
+            animations.emplace_back(make_shared<HitAnimation>(pos, Vec2d(x, y)));
+            animations.emplace_back(make_shared<PopAnimation>(pos, Vec2d(0, -1)));
         }
     }
-
-    void playBossHitAnimation(Vec2d pos) {
-        for (int i = 0; i < 8; ++i) {
-            Vec2d dir = getRandomPoint() - pos;
-            dir = dir.normalized();
-            dir.x = -dir.x; dir.y = -dir.y;
-            animations.emplace_back(make_shared<HitAnimation>(pos, dir));
-        }
-    }
-
 
     void dropPowerItem(Vec2d pos) {
         SDL_Rect clip = {306, 25, 16, 16};
         shared_ptr<PowerItem> item = make_shared<PowerItem>(pos, clip);
-        particles.emplace_back(move(item));
+        particles.emplace_back(item);
     }
 
     void dropScoreItem(Vec2d pos) {
         SDL_Rect clip = {322, 25, 16, 16};
         shared_ptr<ScoreItem> item = make_shared<ScoreItem>(pos, clip);
-        particles.emplace_back(move(item));
+        particles.emplace_back(item);
     }
 
 };

@@ -9,7 +9,8 @@ SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
 int PLAYER_LOST = 0;
 
-int elapsed_frame = 0;
+int elapsedFrame = 0;
+double scrollingSpeed = 0.5;
 
 Player player;
 ParticleManager particleManager;

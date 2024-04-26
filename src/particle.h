@@ -27,6 +27,10 @@ class Particle {
         return 0;
     }
 
+    bool shouldDelete() {
+        return elapsedTime >= 60 * 15 || hit;
+    }
+
     virtual void update() {}
 };
 
