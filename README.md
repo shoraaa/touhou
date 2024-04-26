@@ -6,14 +6,17 @@ A remake of Touhou 6 - Embodiment of Scarlet Devil using the SDL2 library, writt
 
 # 0. How to download
 
-## 0.a Pre-compiled binary
-Download touhou.zip from release.
-Run touhou.exe
+## Prerequisite:
+- MinGW64 for dynamic linking library and/or compilation.
 
-## 0.b Compile from source code
+## - Pre-compiled binary (Window)
+1. Code -> Download ZIP.
+2. Extract touhou-main.zip
+3. Run touhou.exe
+
+## - Compile from source code
 ```
 make
-.\touhou.exe
 ```
 
 # 1. How to start
