@@ -38,6 +38,7 @@ struct Player {
     int sprite_delta = DELTA_DELAY;
     int idle = 0, movingRight = 0, movingLeft = 0;
     int tick = 0;
+    int bomb = 3;
 
 	const double DELTA_X = 5;
 	const double DELTA_Y = 5;
@@ -45,6 +46,7 @@ struct Player {
     Vec2d normalVelocity, slowVelocity;
 
     int invicibleFrame = 0;
+    int bombDelay = 0;
 
     int pressed[8] = { 0 };
     #define KEY_UP 0
@@ -73,6 +75,9 @@ struct Player {
         deadSE.load("pldead00");
         itemSE.load("item00");
         grazeSE.load("graze");
+
+        lives = 3;
+        bomb = 3;
 
         // source rectangle
         for (int i = 0, y = 25; i < 2; ++i) {
@@ -112,12 +117,6 @@ struct Player {
         tao[0]->angle = tao[1]->angle = (tick * 4) % 360;
 
         tao[0]->render(); tao[1]->render();
-
-
-
-        // spriteTexture.render(position.x - 24, position.y, &taoClip, 16, 16, (tick * 4) % 360);
-        // spriteTexture.render(position.x + 24, position.y, &taoClip, 16, 16, (tick * 4) % 360);
-
 
         // normal bullet
         spriteTexture.setAlpha(128);
@@ -188,9 +187,18 @@ struct Player {
         }
         deltaTao->update();
 
+
         // shoot
         if (pressed[KEY_SHOOT]) {
             shoot();
+        }
+
+        // bomb
+        if (bombDelay > 0) bombDelay--;
+        if (bombDelay == 0 && pressed[KEY_BOMB]) {
+            throwBomb();
+            bombDelay = 240;
+            invicibleFrame = 240;
         }
 
         updateSprite();
@@ -233,6 +241,7 @@ struct Player {
         } 
 
         lives--;
+        power = max(power - 10, 1);
         invicibleFrame = 120;
         return 1;
     }
@@ -282,14 +291,19 @@ struct Player {
         movingRight = 0;
     }
 
-    void shoot() {
-        shootSE.play();
-
+    int getPowerLv() {
         int powerLV = 1;
         if (power >= 10) powerLV = 2;
         if (power >= 20) powerLV = 3;
         if (power >= 35) powerLV = 4;
         if (power >= 60) powerLV = 5;
+        return powerLV;
+    }
+
+    void shoot() {
+        shootSE.play();
+
+        int powerLV = getPowerLv();
 
         int currentTick = SDL_GetTicks();
         if (powerLV == 1) {
@@ -390,6 +404,14 @@ struct Player {
             }
 
         }
+
+    }
+    
+    int requestClear = 0;
+    void throwBomb() {
+        if (!bomb) return; 
+        bomb--;
+        requestClear = 1;
 
     }
 

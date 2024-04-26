@@ -101,7 +101,7 @@ struct Scene_Gameplay {
         if (!paused) {
             player.handleInput(e);
             
-            if (key == SDLK_x) {
+            if (key == SDLK_ESCAPE) {
                 currentPointer = 0;
                 paused = 1;
                 player.clearInput();
@@ -119,9 +119,11 @@ struct Scene_Gameplay {
         if (key == SDLK_RETURN) {
             if (currentPointer == 0) {
                 paused = 0;
-                PLAYER_LOST = 0;
-                player.lives = 3;
-                player.score = 0;
+                if (PLAYER_LOST) {
+                    PLAYER_LOST = 0;
+                    player.lives = 3;
+                    player.score = player._score = 0;
+                }
             } else if (currentPointer == 1) {
                 SDL_Quit();
             }
@@ -251,6 +253,7 @@ struct Scene_Gameplay {
         clip.x = 25, clip.y = 201, clip.w = 48, clip.h = 16;
         dstRect.x = 8 * 53, dstRect.y = 8 * 15, dstRect.w = 48, dstRect.h = 16;
         foreground.render(&clip, &dstRect);
+
         clip.x = 57, clip.y = 265, clip.w = 16, clip.h = 16;
         dstRect.x = 8 * 53 + 64; dstRect.w = 16, dstRect.h = 16;
         for (int i = 0; i < player.lives; ++i, dstRect.x += 16 + 4) {
@@ -263,6 +266,12 @@ struct Scene_Gameplay {
         clip.x = 25, clip.y = 201 - 16, clip.w = 48, clip.h = 16;
         dstRect.x = 8 * 53, dstRect.y = 8 * 18, dstRect.w = 48, dstRect.h = 16;
         foreground.render(&clip, &dstRect);
+
+        clip.x = 57 + 16, clip.y = 265, clip.w = 16, clip.h = 16;
+        dstRect.x = 8 * 53 + 64; dstRect.w = 16, dstRect.h = 16;
+        for (int i = 0; i < player.bomb; ++i, dstRect.x += 16 + 4) {
+            foreground.render(&clip, &dstRect);
+        }
     }
 
 
@@ -340,7 +349,7 @@ struct Scene_Gameplay {
         renderPlayerHighScore();
 
         renderPlayerLives();
-        // renderPlayerBomb();
+        renderPlayerBomb();
 
         renderPlayerPower();
         renderPlayerGraze();

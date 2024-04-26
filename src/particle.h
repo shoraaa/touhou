@@ -94,11 +94,15 @@ public:
 
 class PowerItem : public Particle {
 public:
-    PowerItem(Vec2d pos, SDL_Rect bulletClip): Particle(pos, ITEM_RADIUS, 2, bulletClip) {
+    int velocity;
+    PowerItem(Vec2d pos, SDL_Rect bulletClip): Particle(pos, ITEM_RADIUS, 2, bulletClip), velocity(ITEM_VELOCITY) {
+        bulletClip.x = 306, bulletClip.y = 25, bulletClip.w = 16, bulletClip.h = 16;
+    }
+    PowerItem(Vec2d pos, SDL_Rect bulletClip, int velocity): Particle(pos, ITEM_RADIUS, 2, bulletClip), velocity(velocity) {
         bulletClip.x = 306, bulletClip.y = 25, bulletClip.w = 16, bulletClip.h = 16;
     }
     void update() override {
-        position.y = initialPosition.y - (ITEM_VELOCITY * elapsedTime / 60.0) + (GRAVITY * elapsedTime * elapsedTime) / (2.0 * 60.0);
+        position.y = initialPosition.y - (velocity * elapsedTime / 60.0) + (GRAVITY * elapsedTime * elapsedTime) / (2.0 * 60.0);
         elapsedTime++;
     }
 };

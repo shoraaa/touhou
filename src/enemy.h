@@ -176,22 +176,25 @@ struct Rumia {
     Vec2d position, direction, initialPosition;
     SE deadSE, hitSE;
     SDL_Rect spriteClip;
-    int spawned = 0, dead = 0;
+    int spawned = 0, dead = 0, phase = 1;
+
+    unique_ptr<Sprite> enemy;
 
     int movingFrame = 1e9;
 
 vector<unique_ptr<Pattern>> patterns;
 
     int elapsedTime = 0;
-    int maxHp = 2000, hp = maxHp, skillDelay = 120;
+    int maxHp = 3000, hp = maxHp, skillDelay = 120;
     double velocity = 1.0, moveDelay = 240;
-    #define MOVE_CD 180
+    int MOVE_CD = 180;
 
-    #define SKILL_CD 240
+    int SKILL_CD = 240;
 
     void initialize() {
         spriteClip = {996, 25, 32, 64};
         hitSE.load("damage00");
+        phase = 1;
 
         patterns.emplace_back(make_unique<FanPattern>());
 
@@ -200,6 +203,9 @@ vector<unique_ptr<Pattern>> patterns;
         patterns.emplace_back(make_unique<RumiaPatternC>());
         patterns.emplace_back(make_unique<RumiaPatternD>());
 
+
+        enemy = make_unique<Sprite>("foreground", SDL_Rect{25, 169, 48, 16});
+        enemy->position = Vec2d(FIELD_X + 24, FIELD_Y + 8); 
 
         for (auto& p : patterns) {
             p->initialize();
@@ -248,6 +254,12 @@ vector<unique_ptr<Pattern>> patterns;
 
         // cerr << hp << '\n';
 
+        if (hp <= maxHp / 2 && phase == 1) {
+            phase = 2;
+            SKILL_CD *= 1.5;
+            MOVE_CD *= 1.5;
+        }
+
         skillDelay--;
         if (skillDelay <= 0) {
             skillDelay = SKILL_CD;
@@ -289,6 +301,12 @@ vector<unique_ptr<Pattern>> patterns;
         }
 
 
+    }
+
+    void render(Texture& texture) {
+        texture.render(position.x, position.y, &spriteClip);
+        enemy->render();
+        
     }
 };
 
@@ -499,7 +517,7 @@ struct EnemyManager {
                     rumia.update();
                 }
             } else {
-                cout << "Win!";
+                // cout << "Win!";
             }
         }
     }
@@ -516,7 +534,8 @@ struct EnemyManager {
         if (rumia.spawned) {
             SDL_Rect hpRect = {FIELD_X + 64, FIELD_Y + 8, (int)((rumia.hp / double(rumia.maxHp)) * (FIELD_WIDTH - (FIELD_X + 64 + 4))), 4};
             SDL_RenderFillRect(renderer, &hpRect);
-            texture.render(rumia.position.x, rumia.position.y, &rumia.spriteClip);
+            rumia.render(texture);
+            
         }
     }
 };

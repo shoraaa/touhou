@@ -49,8 +49,8 @@ struct Program {
             printf( "SDL_mixer could not initialize! SDL_mixer Error: %s\n", Mix_GetError() );
             return 0;
         }
-        Mix_VolumeMusic(16);
-        Mix_MasterVolume(16);
+        Mix_VolumeMusic(32);
+        Mix_MasterVolume(8);
         Mix_AllocateChannels(TOTAL_CHANNEL);
 
         renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
@@ -150,20 +150,19 @@ struct Program {
 		SDL_Event e; 
 		bool quit = false; 
 
-        unsigned int delta, currentTick = 0;
+        unsigned int currentTick = 0;
 
-        int desiredDelta = 1000.0 / 60;
-        int fpsDelay = 1000.0 / 20;
+        double desiredDelta = 1000.0 / 60, delta;
+        double fpsDelay = 1000.0 / 30;
         
 		while (!quit) { 
 
             delta = SDL_GetTicks() - currentTick;
-            if (delta <= fpsDelay)
-                fps = 1000.0 / (desiredDelta - delta);
             if (delta <= desiredDelta) {
-                SDL_Delay(desiredDelta - delta);
+                continue;
             }
             currentTick = SDL_GetTicks();
+            fps = 1000.0 / delta;
             
             while (SDL_PollEvent(&e)) { 
                 if (e.type == SDL_QUIT) quit = true;

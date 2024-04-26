@@ -46,6 +46,7 @@ struct ParticleManager {
         if (player.gotHit()) {
             playPlayerDeadAnimation(player.position);
             clear();
+            
         }
     }
 
@@ -86,9 +87,29 @@ struct ParticleManager {
         animations = move(newAnimations);
     }
 
+    int currentPowerLv = 1;
+
     void update() {
         updateBullets();
         updateAnimation();
+
+        if (player.getPowerLv() != currentPowerLv) {
+            playPowerUpAnimation(player.position);
+            currentPowerLv = player.getPowerLv();
+        }
+
+        if (player.requestClear) {
+            player.requestClear = 0;
+            playPlayerDeadAnimation(player.position);
+            clear();
+
+            SDL_Rect clip = {306, 25, 16, 16};
+            Vec2d pos = player.position; pos.y -= 160;
+            for (int i = 0; i < 10; ++i) {
+                shared_ptr<PowerItem> item = make_shared<PowerItem>(pos, clip);
+                particles.emplace_back(item);
+            }
+        }
 
     }
 
@@ -129,6 +150,8 @@ struct ParticleManager {
             animations.emplace_back(make_shared<EnemyDeadAnimation>(particle->position));
         }
         particles.clear();
+
+
     }
 
     void playEnemyDeadAnimation(Vec2d pos, int type = 0) {
@@ -156,6 +179,10 @@ struct ParticleManager {
             animations.emplace_back(make_shared<HitAnimation>(pos, Vec2d(x, y)));
             animations.emplace_back(make_shared<PopAnimation>(pos, Vec2d(0, -1)));
         }
+    }
+
+    void playPowerUpAnimation(Vec2d pos) {
+        // animations.emplace_back(make_shared<PowerUpAnimation>(pos, Vec2d(0, -1)));
     }
 
     void dropPowerItem(Vec2d pos) {

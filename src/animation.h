@@ -119,3 +119,20 @@ public:
         texture.setAlpha(255);
     }
 };
+
+class PowerUpAnimation : public Animation {
+public:
+    SDL_Rect clip = {386, 25, 48, 8};
+    PowerUpAnimation(Vec2d position, Vec2d direction): Animation(position, direction) {}
+    bool update() override {
+        if (frame >= 16) return 0;
+        frame++;
+        position = position + direction * easeOut(frame / 16.0);
+        return 1;
+    }
+    void render(Texture& texture) override {
+        // texture.setAlpha((1.0 - (frame / 16.0)) * 32);
+        texture.render(position.x, position.y, &clip, 24, 24);
+        // texture.setAlpha(255);
+    }
+};
