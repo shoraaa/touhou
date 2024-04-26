@@ -35,7 +35,7 @@ When you feel stuck, you can use the X key to spend 1 of your bomb, clearing eve
 Getting hit by your enemies's bullets or their body will cause your character to lose 1 health, and temporary being invicible for 5 secs, lose all your score and clearing every bullet on-screen.
 
 ### Power
-Power-up your character by collecting the red item drop from enemy. There are 5 stages of power, each reached when player have at least 1/10/20/35/60 power. Dying will decrease your power by 10.
+Power-up your character by collecting the red item drop from enemy. There are 5 stages of power, each reached when player have at least 1/10/20/35/60 power. Aim to increase your power level! Starting from level 2, you will have additional bullet that auto-aim the enemy for you :D. Dying decrease your power by 10.
 
 ### Chi 
 Increase your character by collecting the blue item drop from enemy. Every 100 chi equal to 1 live.
@@ -63,6 +63,24 @@ Graze is the concept of being as close to enemy bullet as possible, without hitt
 
 ### Dying
 Losing lives will decrease player score, each decrease 10000 score. Losing the game give you choice to continue, but your score will be reset to 0.
+
+
+# 3. Source code base
+
+- const.h: Some constants in the game, such as window width, etc.
+- utils.h: Utilities function and class, such as Vec2d class, random() function, ..
+- audio.h: SDL_Mixer audio wrapper class.
+- texture.h: A texture wrapper class for SDL_Texture.
+- sprite.h: Sprite class, which can use to animate it properties (position, angle, etc.)
+- animation.h: Classes of different animations in the game, such as hiting enemy, dying, ..
+- particle.h: Classes of different particle/bullet in the game.
+- particleManager.h: ParticleManager class, which manage (create, update and render) every particle on screen.
+- enemy.h: Classes of different enemies in the game, and a EnemyManager class that contains all of enemies on screen.
+- pattern.h: Classes of different boss abilities pattern, which will call particleManager to execute them.
+- player.h: Player class, which manage player and its bullet.
+- scene.h: Classes of different scene: main menu, gameplay, ..
+- program.h: Class of the program itself.
+
 
 
 
