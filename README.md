@@ -63,7 +63,7 @@ Power-up your character by collecting the red item drop from enemy. There are 5 
 
 ### Chi 
 Increase your character by collecting the blue item drop from enemy. Every 100 chi equal to 1 live.
-![image](https://github.com/shoraaa/touhou/assets/24241275/5b14aa59-3410-4555-8105-ee881b02f6b7)
+
 
 
 ## 2.b Enemy
