@@ -12,6 +12,7 @@
 extern Player player;
 extern ParticleManager particleManager;
 extern int elapsedFrame;
+extern double scrollingSpeed;
 
 class Enemy {
 public:
@@ -503,6 +504,8 @@ struct EnemyManager {
 
             defaultDeltaPink = 60;
             generatePinkFairy();
+
+            scrollingSpeed = 1.0;
         } else if (phase == 3) {
             defaultDeltaBlue = 10;
             generateExtraBlueFairy();
